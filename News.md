@@ -1,4 +1,4 @@
-# 2026-05-21 Language Server Protocol (LSP) now available outside Visual Studio Code
+# 2026-05-26 Language Server Protocol (LSP) now available outside Visual Studio Code
 
 The AL Language extension pre-release now ships a standalone Language Server Protocol (LSP) server — the same language intelligence that powers Visual Studio Code, made available to autonomous AI agents, alternative editors, and custom tooling.
 
