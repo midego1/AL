@@ -8,7 +8,7 @@ AI agents working with AL code — whether they're refactoring, navigating symbo
 
 ## How it works
 
-ALTool exposes the server through a new `launchlspserver` command. An agent or editor spawns ALTool as a child process and communicates over stdio using JSON-RPC — exactly like Visual Studio Code does internally, but without the editor.
+AL Development Tools exposes the server through a new `launchlspserver` command. An agent or editor spawns ALTool as a child process and communicates over stdio using JSON-RPC — exactly like Visual Studio Code does internally, but without the editor.
 
 ```shell
 al launchlspserver "<path-to-project>" --packagecachepath "<symbols>"
