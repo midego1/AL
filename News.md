@@ -8,7 +8,7 @@ AI agents working with AL code — whether they're refactoring, navigating symbo
 
 ## How it works
 
-The AL tool exposes the server through a new `launchlspserver` command. An agent or editor spawns AL tool as a child process and communicates over stdio using JSON-RPC — exactly like Visual Studio Code does internally, but without the editor.
+The AL tool exposes the server through a new `launchlspserver` command. An agent or editor spawns the AL tool as a child process and communicates over stdio using JSON-RPC — exactly like Visual Studio Code does internally, but without the editor.
 
 ```shell
 al launchlspserver "<path-to-project>" --packagecachepath "<symbols>"
