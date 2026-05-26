@@ -1,6 +1,6 @@
 # 2026-05-26 Language Server Protocol (LSP) now available outside Visual Studio Code
 
-The AL Language extension pre-release now ships a standalone Language Server Protocol (LSP) server — the same language intelligence that powers Visual Studio Code, made available to autonomous AI agents, alternative editors, and custom tooling.
+The AL Development Tools package now ships a standalone Language Server Protocol (LSP) server — the same language intelligence that powers Visual Studio Code, made available to autonomous AI agents, alternative editors, and custom tooling. Learn more in [AL Development Tools package](https://learn.microsoft.com/dynamics365/business-central/dev-itpro/developer/devenv-al-tool-package).
 
 ## Why this matters
 
@@ -11,7 +11,7 @@ AI agents working with AL code — whether they're refactoring, navigating symbo
 ALTool exposes the server through a new `launchlspserver` command. An agent or editor spawns ALTool as a child process and communicates over stdio using JSON-RPC — exactly like Visual Studio Code does internally, but without the editor.
 
 ```shell
-altool launchlspserver "<path-to-project>" --packagecachepath "<symbols>"
+al launchlspserver "<path-to-project>" --packagecachepath "<symbols>"
 ```
 
 Multi-project workspaces are supported: pass multiple project folders or point to a `.code-workspace` file, and the server resolves cross-project dependencies automatically.
