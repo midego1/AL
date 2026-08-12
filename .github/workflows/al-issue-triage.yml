@@ -1,243 +1,57 @@
-name: Public AL issue triage
+name: Start public AL issue triage agent
 
-# Native GitHub Actions intake for issue triage in this public repository. This workflow never
-# calls private GHE/ADO APIs, never uses private credentials, and never closes issues or applies
-# the `accepted` label - acceptance is a human-only decision, and the separate existing
-# accepted-label automation independently creates any internal follow-up work item.
-#
-# Third-party actions are pinned to an immutable commit SHA (with the human-readable version in a
-# trailing comment) rather than a mutable tag, so a compromised/republished tag cannot silently
-# change what this workflow runs.
+# COPILOT_ASSIGNMENT_TOKEN must be a user-to-server token that can assign Copilot and has read/write
+# access to actions, contents, issues, and pull requests for this repository.
 on:
   issues:
-    types: [opened, reopened, edited]
-  pull_request:
-    # Validation-only: exercises the triage decision logic (tests/lint/security-grep) on changes
-    # to the automation itself. This trigger never has issues/comments permissions and never
-    # posts a comment or label - see the `validate` job below.
-    paths:
-      - '.github/scripts/triage/**'
-      - '.github/workflows/al-issue-triage.yml'
+    types: [opened]
   workflow_dispatch:
     inputs:
       issue_number:
-        description: 'Issue number to (re-)triage'
+        description: Issue number to triage
         required: true
         type: number
-      allow_container_reproduction:
-        description: 'Allow disposable stock BC container reproduction (Tier 2)'
-        required: false
-        type: boolean
-        default: false
-  schedule:
-    # Low-frequency reconciliation pass for issues whose triage may be incomplete/stale (e.g. a
-    # prior run failed after edit). Kept infrequent to bound cost.
-    - cron: '17 5 * * 1'
 
-# One triage run per issue at a time; a newer trigger for the same issue supersedes an in-flight
-# older one instead of racing it, which keeps the idempotent comment/label updates safe. PR
-# validation runs get their own independent concurrency group keyed by PR number.
-concurrency:
-  group: al-issue-triage-${{ github.event.issue.number || github.event.inputs.issue_number || (github.event.pull_request && format('pr-{0}', github.event.pull_request.number)) || 'scheduled' }}
-  cancel-in-progress: true
-
-# Least-privilege default: read-only. Only the jobs that actually need to comment/label escalate
-# `issues: write` at the job level; `validate` never does.
 permissions:
   contents: read
+  issues: read
+
+concurrency:
+  group: public-al-issue-triage-${{ github.event.issue.number || github.event.inputs.issue_number }}
+  cancel-in-progress: false
 
 jobs:
-  validate:
-    # Runs the full decision-logic test suite, PowerShell parser check, PSScriptAnalyzer, and a
-    # security grep against the triage automation itself on every pull request that touches it.
-    # Deliberately has NO `issues` permission and never calls the GitHub issues API - it cannot
-    # comment or label anything, even if the scripts under test were somehow tricked into trying.
-    if: github.event_name == 'pull_request'
+  start-triage-session:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
-    permissions:
-      contents: read
+    timeout-minutes: 5
     steps:
-      - name: Checkout
-        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
-        with:
-          sparse-checkout: |
-            .github/scripts/triage
-          sparse-checkout-cone-mode: false
-
-      - name: Setup .NET
-        uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4.3.1
-        with:
-          dotnet-version: '8.0.x'
-
-      - name: PowerShell parser check (syntax validation, no execution)
-        shell: pwsh
+      - name: Assign the issue to the AL triage agent
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.COPILOT_ASSIGNMENT_TOKEN }}
+          ISSUE_NUMBER: ${{ github.event.issue.number || github.event.inputs.issue_number }}
         run: |
-          $ErrorActionPreference = 'Stop'
-          $files = Get-ChildItem -Path .github/scripts/triage -Filter *.ps*1 -Recurse
-          $failed = $false
-          foreach ($f in $files) {
-            $parseErrors = $null
-            [System.Management.Automation.Language.Parser]::ParseFile($f.FullName, [ref]$null, [ref]$parseErrors) | Out-Null
-            if ($parseErrors.Count -gt 0) {
-              $failed = $true
-              Write-Output "SYNTAX ERRORS in $($f.Name):"
-              $parseErrors | ForEach-Object { Write-Output "  $_" }
+          set -euo pipefail
+
+          if [[ -z "${GH_TOKEN:-}" ]]; then
+            echo "::error::COPILOT_ASSIGNMENT_TOKEN is required to start a Copilot cloud-agent session."
+            exit 1
+          fi
+
+          gh api \
+            --method POST \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "/repos/${GITHUB_REPOSITORY}/issues/${ISSUE_NUMBER}/assignees" \
+            --input - <<JSON
+          {
+            "assignees": ["copilot-swe-agent[bot]"],
+            "agent_assignment": {
+              "target_repo": "${GITHUB_REPOSITORY}",
+              "base_branch": "${{ github.event.repository.default_branch }}",
+              "custom_agent": "al-issue-triager",
+              "custom_instructions": "Triage issue #${ISSUE_NUMBER}. Post exactly one standardized public triage comment, make no repository changes, and do not create a pull request.",
+              "model": ""
             }
           }
-          if ($failed) { throw 'PowerShell syntax validation failed.' }
-
-      - name: PSScriptAnalyzer
-        shell: pwsh
-        run: |
-          $ErrorActionPreference = 'Stop'
-          Install-Module -Name PSScriptAnalyzer -Force -Scope CurrentUser -Repository PSGallery
-          $results = Invoke-ScriptAnalyzer -Path .github/scripts/triage -Recurse -Severity Warning, Error, Information
-          if ($results) {
-            $results | Format-Table -AutoSize | Out-String | Write-Output
-            throw "PSScriptAnalyzer reported $($results.Count) finding(s)."
-          }
-
-      - name: Security grep (no private-host/credential references)
-        shell: pwsh
-        run: |
-          $ErrorActionPreference = 'Stop'
-          $patterns = @('(?i)ghe\.com', '(?i)dev\.azure\.com', '(?i)visualstudio\.com', '(?i)pkgs\.dev\.azure\.com', '\bSYSTEM_ACCESSTOKEN\b', '\bADO_PAT\b')
-          $files = Get-ChildItem -Path .github/scripts/triage -Recurse -Include *.ps1, *.psm1, *.json
-          $violations = foreach ($f in $files) {
-            $content = Get-Content -Path $f.FullName -Raw
-            foreach ($p in $patterns) {
-              if ($content -match $p) { "{0}: matched pattern {1}" -f $f.FullName, $p }
-            }
-          }
-          if ($violations) {
-            $violations | ForEach-Object { Write-Output $_ }
-            throw 'Security guard found a private-host/credential reference in the triage automation.'
-          }
-
-      - name: Pester test suite (decision logic + eval corpus)
-        shell: pwsh
-        run: |
-          $ErrorActionPreference = 'Stop'
-          Install-Module -Name Pester -MinimumVersion 5.0 -Force -Scope CurrentUser -Repository PSGallery -SkipPublisherCheck
-          Import-Module Pester -MinimumVersion 5.0 -Force
-          $config = New-PesterConfiguration
-          $config.Run.Path = '.github/scripts/triage/tests'
-          $config.Run.Exit = $true
-          $config.Output.Verbosity = 'Detailed'
-          Invoke-Pester -Configuration $config
-
-  triage:
-    if: github.event_name == 'issues' || (github.event_name == 'workflow_dispatch' && github.event.inputs.allow_container_reproduction != 'true')
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    permissions:
-      contents: read
-      issues: write
-    steps:
-      - name: Checkout triage scripts (default branch only)
-        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
-        with:
-          ref: ${{ github.event.repository.default_branch }}
-          sparse-checkout: |
-            .github/scripts/triage
-          sparse-checkout-cone-mode: false
-
-      - name: Setup .NET
-        uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4.3.1
-        with:
-          dotnet-version: '8.0.x'
-
-      - name: Run Tier 1 (server-free) issue triage
-        shell: pwsh
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          $issueNumber = '${{ github.event.issue.number }}'
-          if (-not $issueNumber) { $issueNumber = '${{ github.event.inputs.issue_number }}' }
-
-          ./.github/scripts/triage/Invoke-IssueTriage.ps1 `
-            -IssueNumber ([int]$issueNumber) `
-            -Repo '${{ github.repository }}' `
-            -GitHubToken $env:GH_TOKEN
-
-  triage-with-container:
-    # Tier 2 (disposable stock BC container) only runs on explicit manual dispatch opt-in, never
-    # automatically on issue open/edit, to bound cost and blast radius.
-    if: github.event_name == 'workflow_dispatch' && github.event.inputs.allow_container_reproduction == 'true'
-    runs-on: windows-latest
-    timeout-minutes: 45
-    permissions:
-      contents: read
-      issues: write
-    steps:
-      - name: Checkout triage scripts (default branch only)
-        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
-        with:
-          ref: ${{ github.event.repository.default_branch }}
-          sparse-checkout: |
-            .github/scripts/triage
-          sparse-checkout-cone-mode: false
-
-      - name: Setup .NET
-        uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4.3.1
-        with:
-          dotnet-version: '8.0.x'
-
-      - name: Install BcContainerHelper (public PowerShell Gallery module)
-        shell: pwsh
-        run: Install-Module -Name BcContainerHelper -Force -Scope CurrentUser -Repository PSGallery
-
-      - name: Run Tier 1+2 issue triage with disposable container reproduction
-        shell: pwsh
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          ./.github/scripts/triage/Invoke-IssueTriage.ps1 `
-            -IssueNumber ([int]'${{ github.event.inputs.issue_number }}') `
-            -Repo '${{ github.repository }}' `
-            -GitHubToken $env:GH_TOKEN `
-            -AllowContainerReproduction
-
-  reconcile-stale:
-    if: github.event_name == 'schedule'
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    permissions:
-      contents: read
-      issues: write
-    steps:
-      - name: Checkout triage scripts (default branch only)
-        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
-        with:
-          ref: ${{ github.event.repository.default_branch }}
-          sparse-checkout: |
-            .github/scripts/triage
-          sparse-checkout-cone-mode: false
-
-      - name: Setup .NET
-        uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4.3.1
-        with:
-          dotnet-version: '8.0.x'
-
-      - name: Re-triage open issues missing a triage report
-        shell: pwsh
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          $headers = @{ Authorization = "Bearer $env:GH_TOKEN"; Accept = 'application/vnd.github+json'; 'User-Agent' = 'al-public-issue-triage' }
-          $openIssues = Invoke-RestMethod -Uri "https://api.github.com/repos/${{ github.repository }}/issues?state=open&per_page=50&sort=created&direction=desc" -Headers $headers
-
-          foreach ($issue in $openIssues) {
-            if ($issue.pull_request) { continue }
-            if ($issue.labels.name -contains 'accepted') { continue }
-            $marker = "public-al-issue-triage:v2:issue-$($issue.number)"
-            $comments = Invoke-RestMethod -Uri "https://api.github.com/repos/${{ github.repository }}/issues/$($issue.number)/comments?per_page=100" -Headers $headers
-            $alreadyTriaged = $comments | Where-Object { $_.body -like "*$marker*" }
-            if ($alreadyTriaged) { continue }
-
-            ./.github/scripts/triage/Invoke-IssueTriage.ps1 `
-              -IssueNumber $issue.number `
-              -Repo '${{ github.repository }}' `
-              -GitHubToken $env:GH_TOKEN
-          }
+          JSON
