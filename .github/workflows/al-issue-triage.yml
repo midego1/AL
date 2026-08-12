@@ -1,0 +1,140 @@
+name: Public AL issue triage
+
+# Native GitHub Actions intake for issue triage in this public repository. This workflow never
+# calls private GHE/ADO APIs, never uses private credentials, and never closes issues or applies
+# the `accepted` label - acceptance is a human-only decision, and the separate existing
+# accepted-label automation independently creates any internal follow-up work item.
+on:
+  issues:
+    types: [opened, reopened, edited]
+  workflow_dispatch:
+    inputs:
+      issue_number:
+        description: 'Issue number to (re-)triage'
+        required: true
+        type: number
+      allow_container_reproduction:
+        description: 'Allow disposable stock BC container reproduction (Tier 2)'
+        required: false
+        type: boolean
+        default: false
+  schedule:
+    # Low-frequency reconciliation pass for issues whose triage may be incomplete/stale (e.g. a
+    # prior run failed after edit). Kept infrequent to bound cost.
+    - cron: '17 5 * * 1'
+
+# One triage run per issue at a time; a newer trigger for the same issue supersedes an in-flight
+# older one instead of racing it, which keeps the idempotent comment/label updates safe.
+concurrency:
+  group: al-issue-triage-${{ github.event.issue.number || github.event.inputs.issue_number || 'scheduled' }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  triage:
+    if: github.event_name != 'schedule'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout triage scripts (default branch only)
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          sparse-checkout: |
+            .github/scripts/triage
+          sparse-checkout-cone-mode: false
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Run Tier 1 (server-free) issue triage
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $issueNumber = '${{ github.event.issue.number }}'
+          if (-not $issueNumber) { $issueNumber = '${{ github.event.inputs.issue_number }}' }
+
+          ./.github/scripts/triage/Invoke-IssueTriage.ps1 `
+            -IssueNumber ([int]$issueNumber) `
+            -Repo '${{ github.repository }}' `
+            -GitHubToken $env:GH_TOKEN
+
+  triage-with-container:
+    # Tier 2 (disposable stock BC container) only runs on explicit manual dispatch opt-in, never
+    # automatically on issue open/edit, to bound cost and blast radius.
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.allow_container_reproduction == 'true'
+    runs-on: windows-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout triage scripts (default branch only)
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          sparse-checkout: |
+            .github/scripts/triage
+          sparse-checkout-cone-mode: false
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Install BcContainerHelper (public PowerShell Gallery module)
+        shell: pwsh
+        run: Install-Module -Name BcContainerHelper -Force -Scope CurrentUser -Repository PSGallery
+
+      - name: Run Tier 1+2 issue triage with disposable container reproduction
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          ./.github/scripts/triage/Invoke-IssueTriage.ps1 `
+            -IssueNumber ([int]'${{ github.event.inputs.issue_number }}') `
+            -Repo '${{ github.repository }}' `
+            -GitHubToken $env:GH_TOKEN `
+            -AllowContainerReproduction
+
+  reconcile-stale:
+    if: github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout triage scripts (default branch only)
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          sparse-checkout: |
+            .github/scripts/triage
+          sparse-checkout-cone-mode: false
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Re-triage open issues missing a triage report
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $headers = @{ Authorization = "Bearer $env:GH_TOKEN"; Accept = 'application/vnd.github+json'; 'User-Agent' = 'al-public-issue-triage' }
+          $openIssues = Invoke-RestMethod -Uri "https://api.github.com/repos/${{ github.repository }}/issues?state=open&per_page=50&sort=created&direction=desc" -Headers $headers
+
+          foreach ($issue in $openIssues) {
+            if ($issue.pull_request) { continue }
+            $marker = "public-al-issue-triage:v1:issue-$($issue.number)"
+            $comments = Invoke-RestMethod -Uri "https://api.github.com/repos/${{ github.repository }}/issues/$($issue.number)/comments?per_page=100" -Headers $headers
+            $alreadyTriaged = $comments | Where-Object { $_.body -like "*$marker*" }
+            if ($alreadyTriaged) { continue }
+
+            ./.github/scripts/triage/Invoke-IssueTriage.ps1 `
+              -IssueNumber $issue.number `
+              -Repo '${{ github.repository }}' `
+              -GitHubToken $env:GH_TOKEN
+          }

@@ -1,0 +1,8 @@
+{
+  "_comment": "Pinned Microsoft.Dynamics.BusinessCentral.Development.Tools (ALTools/altool) NuGet package versions used for public, server-free Tier-1 reproduction. Update deliberately via a reviewed PR - never let the workflow float to an unpinned 'latest' version, so reproduction results stay repeatable across runs.",
+  "nugetSource": "https://api.nuget.org/v3/index.json",
+  "packageId": "Microsoft.Dynamics.BusinessCentral.Development.Tools",
+  "stable": "17.0.34.45391",
+  "preview": "18.0.39.10160-beta",
+  "_updateProcess": "Bump 'stable'/'preview' in a PR when a new ALTools package ships. The 'reported' version tested per-issue is resolved at runtime from the issue's disclosed AL Language/platform version and is NOT stored here."
+}
