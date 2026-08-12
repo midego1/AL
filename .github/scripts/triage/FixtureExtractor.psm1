@@ -112,6 +112,11 @@ function Get-AlCodeFixture {
 }
 
 function Get-AlObjectTypeHint {
+    <#
+        .SYNOPSIS
+        Best-effort detection of the AL object type (codeunit, page, table, ...) declared in a
+        fenced code snippet, used only to name the generated fixture file more descriptively.
+    #>
     param([string] $Code)
     if ($Code -match '(?im)^\s*(codeunit|page|pageextension|table|tableextension|report|reportextension|query|xmlport|enum|enumextension|permissionset|controladdin|interface)\b') {
         return $Matches[1].ToLowerInvariant()
@@ -124,6 +129,18 @@ function New-MinimalAlProject {
         .SYNOPSIS
         Materializes an extracted fixture manifest plus a minimal app.json onto disk in an isolated
         temp directory. Never writes outside of the returned directory.
+
+        .DESCRIPTION
+        Dependency-free by default: the generated manifest declares no `application` dependency, so
+        Tier-1 (server-free) compilation only ever needs to resolve the AL platform's own System
+        symbols - never Base Application/System Application. This was validated by actually running
+        the pinned ALTools package: an app.json with no `application` key still requires the System
+        symbol package to compile, but omitting `application` avoids ALSO requiring the much larger
+        Application/Base Application package. Callers that genuinely need an application dependency
+        (e.g. a deliberately curated regression fixture) can opt in via -IncludeApplicationDependency;
+        ordinary reporter-supplied fixtures should never set this, since it can only make Tier 1 less
+        conclusive (any resulting missing-symbol diagnostic is classified as container-required, not
+        reproduced - see DiagnosticMatcher.psm1).
     #>
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute(
         'PSUseShouldProcessForStateChangingFunctions', '',
@@ -132,8 +149,9 @@ function New-MinimalAlProject {
         [Parameter(Mandatory)] [hashtable] $Files,
         [Parameter(Mandatory)] [string] $DestinationRoot,
         [string] $Id = ([guid]::NewGuid().ToString()),
-        [string] $ApplicationVersion = '24.0.0.0',
-        [string] $PlatformVersion = '24.0.0.0'
+        [string] $PlatformVersion = '24.0.0.0',
+        [switch] $IncludeApplicationDependency,
+        [string] $ApplicationVersion = '24.0.0.0'
     )
 
     $projectDir = Join-Path $DestinationRoot "al-triage-fixture-$([guid]::NewGuid().ToString('N').Substring(0,8))"
@@ -144,12 +162,12 @@ function New-MinimalAlProject {
         name          = 'PublicIssueTriageFixture'
         publisher     = 'al-issue-triage-bot'
         version       = '1.0.0.0'
-        application   = $ApplicationVersion
         platform      = $PlatformVersion
         idRanges      = @(@{ from = 50100; to = 50149 })
         target        = 'Cloud'
         runtime       = '13.0'
     }
+    if ($IncludeApplicationDependency) { $appJson['application'] = $ApplicationVersion }
 
     $appJson | ConvertTo-Json -Depth 5 | Set-Content -Path (Join-Path $projectDir 'app.json') -Encoding utf8
 

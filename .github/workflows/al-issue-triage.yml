@@ -4,9 +4,20 @@ name: Public AL issue triage
 # calls private GHE/ADO APIs, never uses private credentials, and never closes issues or applies
 # the `accepted` label - acceptance is a human-only decision, and the separate existing
 # accepted-label automation independently creates any internal follow-up work item.
+#
+# Third-party actions are pinned to an immutable commit SHA (with the human-readable version in a
+# trailing comment) rather than a mutable tag, so a compromised/republished tag cannot silently
+# change what this workflow runs.
 on:
   issues:
     types: [opened, reopened, edited]
+  pull_request:
+    # Validation-only: exercises the triage decision logic (tests/lint/security-grep) on changes
+    # to the automation itself. This trigger never has issues/comments permissions and never
+    # posts a comment or label - see the `validate` job below.
+    paths:
+      - '.github/scripts/triage/**'
+      - '.github/workflows/al-issue-triage.yml'
   workflow_dispatch:
     inputs:
       issue_number:
@@ -24,23 +35,108 @@ on:
     - cron: '17 5 * * 1'
 
 # One triage run per issue at a time; a newer trigger for the same issue supersedes an in-flight
-# older one instead of racing it, which keeps the idempotent comment/label updates safe.
+# older one instead of racing it, which keeps the idempotent comment/label updates safe. PR
+# validation runs get their own independent concurrency group keyed by PR number.
 concurrency:
-  group: al-issue-triage-${{ github.event.issue.number || github.event.inputs.issue_number || 'scheduled' }}
+  group: al-issue-triage-${{ github.event.issue.number || github.event.inputs.issue_number || (github.event.pull_request && format('pr-{0}', github.event.pull_request.number)) || 'scheduled' }}
   cancel-in-progress: true
 
+# Least-privilege default: read-only. Only the jobs that actually need to comment/label escalate
+# `issues: write` at the job level; `validate` never does.
 permissions:
   contents: read
-  issues: write
 
 jobs:
+  validate:
+    # Runs the full decision-logic test suite, PowerShell parser check, PSScriptAnalyzer, and a
+    # security grep against the triage automation itself on every pull request that touches it.
+    # Deliberately has NO `issues` permission and never calls the GitHub issues API - it cannot
+    # comment or label anything, even if the scripts under test were somehow tricked into trying.
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          sparse-checkout: |
+            .github/scripts/triage
+          sparse-checkout-cone-mode: false
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4.3.1
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: PowerShell parser check (syntax validation, no execution)
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $files = Get-ChildItem -Path .github/scripts/triage -Filter *.ps*1 -Recurse
+          $failed = $false
+          foreach ($f in $files) {
+            $parseErrors = $null
+            [System.Management.Automation.Language.Parser]::ParseFile($f.FullName, [ref]$null, [ref]$parseErrors) | Out-Null
+            if ($parseErrors.Count -gt 0) {
+              $failed = $true
+              Write-Output "SYNTAX ERRORS in $($f.Name):"
+              $parseErrors | ForEach-Object { Write-Output "  $_" }
+            }
+          }
+          if ($failed) { throw 'PowerShell syntax validation failed.' }
+
+      - name: PSScriptAnalyzer
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          Install-Module -Name PSScriptAnalyzer -Force -Scope CurrentUser -Repository PSGallery
+          $results = Invoke-ScriptAnalyzer -Path .github/scripts/triage -Recurse -Severity Warning, Error, Information
+          if ($results) {
+            $results | Format-Table -AutoSize | Out-String | Write-Output
+            throw "PSScriptAnalyzer reported $($results.Count) finding(s)."
+          }
+
+      - name: Security grep (no private-host/credential references)
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $patterns = @('(?i)ghe\.com', '(?i)dev\.azure\.com', '(?i)visualstudio\.com', '(?i)pkgs\.dev\.azure\.com', '\bSYSTEM_ACCESSTOKEN\b', '\bADO_PAT\b')
+          $files = Get-ChildItem -Path .github/scripts/triage -Recurse -Include *.ps1, *.psm1, *.json
+          $violations = foreach ($f in $files) {
+            $content = Get-Content -Path $f.FullName -Raw
+            foreach ($p in $patterns) {
+              if ($content -match $p) { "{0}: matched pattern {1}" -f $f.FullName, $p }
+            }
+          }
+          if ($violations) {
+            $violations | ForEach-Object { Write-Output $_ }
+            throw 'Security guard found a private-host/credential reference in the triage automation.'
+          }
+
+      - name: Pester test suite (decision logic + eval corpus)
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          Install-Module -Name Pester -MinimumVersion 5.0 -Force -Scope CurrentUser -Repository PSGallery -SkipPublisherCheck
+          Import-Module Pester -MinimumVersion 5.0 -Force
+          $config = New-PesterConfiguration
+          $config.Run.Path = '.github/scripts/triage/tests'
+          $config.Run.Exit = $true
+          $config.Output.Verbosity = 'Detailed'
+          Invoke-Pester -Configuration $config
+
   triage:
-    if: github.event_name != 'schedule'
+    if: github.event_name == 'issues' || (github.event_name == 'workflow_dispatch' && github.event.inputs.allow_container_reproduction != 'true')
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    permissions:
+      contents: read
+      issues: write
     steps:
       - name: Checkout triage scripts (default branch only)
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           ref: ${{ github.event.repository.default_branch }}
           sparse-checkout: |
@@ -48,7 +144,7 @@ jobs:
           sparse-checkout-cone-mode: false
 
       - name: Setup .NET
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4.3.1
         with:
           dotnet-version: '8.0.x'
 
@@ -71,9 +167,12 @@ jobs:
     if: github.event_name == 'workflow_dispatch' && github.event.inputs.allow_container_reproduction == 'true'
     runs-on: windows-latest
     timeout-minutes: 45
+    permissions:
+      contents: read
+      issues: write
     steps:
       - name: Checkout triage scripts (default branch only)
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           ref: ${{ github.event.repository.default_branch }}
           sparse-checkout: |
@@ -81,7 +180,7 @@ jobs:
           sparse-checkout-cone-mode: false
 
       - name: Setup .NET
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4.3.1
         with:
           dotnet-version: '8.0.x'
 
@@ -104,9 +203,12 @@ jobs:
     if: github.event_name == 'schedule'
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    permissions:
+      contents: read
+      issues: write
     steps:
       - name: Checkout triage scripts (default branch only)
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           ref: ${{ github.event.repository.default_branch }}
           sparse-checkout: |
@@ -114,7 +216,7 @@ jobs:
           sparse-checkout-cone-mode: false
 
       - name: Setup .NET
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4.3.1
         with:
           dotnet-version: '8.0.x'
 
@@ -128,7 +230,8 @@ jobs:
 
           foreach ($issue in $openIssues) {
             if ($issue.pull_request) { continue }
-            $marker = "public-al-issue-triage:v1:issue-$($issue.number)"
+            if ($issue.labels.name -contains 'accepted') { continue }
+            $marker = "public-al-issue-triage:v2:issue-$($issue.number)"
             $comments = Invoke-RestMethod -Uri "https://api.github.com/repos/${{ github.repository }}/issues/$($issue.number)/comments?per_page=100" -Headers $headers
             $alreadyTriaged = $comments | Where-Object { $_.body -like "*$marker*" }
             if ($alreadyTriaged) { continue }

@@ -1,5 +1,5 @@
 BeforeAll {
-    Import-Module (Join-Path $PSScriptRoot '..' 'ScopePrefilter.psm1') -Force
+    Import-Module (Join-Path -Path $PSScriptRoot -ChildPath '..' -AdditionalChildPath 'ScopePrefilter.psm1') -Force
 }
 
 Describe 'Get-IssueScopeClassification' {
@@ -102,4 +102,3 @@ Describe 'Find-PossibleDuplicateIssue' {
         $result.Count | Should -Be 0
     }
 }
-

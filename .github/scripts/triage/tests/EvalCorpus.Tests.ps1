@@ -1,17 +1,17 @@
 BeforeAll {
-    Import-Module (Join-Path $PSScriptRoot '..' 'ScopePrefilter.psm1') -Force
-    Import-Module (Join-Path $PSScriptRoot '..' 'FixtureExtractor.psm1') -Force
-    Import-Module (Join-Path $PSScriptRoot '..' 'SafetyGuard.psm1') -Force
+    Import-Module (Join-Path -Path $PSScriptRoot -ChildPath '..' -AdditionalChildPath 'ScopePrefilter.psm1') -Force
+    Import-Module (Join-Path -Path $PSScriptRoot -ChildPath '..' -AdditionalChildPath 'FixtureExtractor.psm1') -Force
+    Import-Module (Join-Path -Path $PSScriptRoot -ChildPath '..' -AdditionalChildPath 'SafetyGuard.psm1') -Force
 }
 
 # Loaded at discovery time (not inside BeforeAll) because Pester evaluates -ForEach collections
 # during test discovery, before any BeforeAll block runs.
-$script:Corpus = Get-Content -Path (Join-Path $PSScriptRoot 'fixtures' 'eval-corpus.json') -Raw | ConvertFrom-Json
+$script:Corpus = Get-Content -Path (Join-Path -Path $PSScriptRoot -ChildPath 'fixtures' -AdditionalChildPath 'eval-corpus.json') -Raw | ConvertFrom-Json
 
 Describe 'Public AL issue triage - labeled eval corpus replay' {
 
     It 'has at least one fixture for every required corpus category' {
-        $corpus = Get-Content -Path (Join-Path $PSScriptRoot 'fixtures' 'eval-corpus.json') -Raw | ConvertFrom-Json
+        $corpus = Get-Content -Path (Join-Path -Path $PSScriptRoot -ChildPath 'fixtures' -AdditionalChildPath 'eval-corpus.json') -Raw | ConvertFrom-Json
         $requiredCategories = @(
             'in-scope', 'runtime', 'application', 'question', 'suggestion', 'duplicate',
             'missing-repro', 'ui-only', 'unsafe-code', 'prompt-injection'

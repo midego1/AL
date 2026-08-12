@@ -30,6 +30,16 @@ function ConvertTo-SafeLabelList {
         Select-Object -Unique
 }
 
+function Get-ManagedLabelSet {
+    <#
+        .SYNOPSIS
+        Returns the full, fixed set of labels this automation ever applies. Callers use this to
+        reconcile labels on re-triage (add newly desired managed labels, remove stale managed
+        labels) while never touching 'accepted' or any human/component label outside this set.
+    #>
+    @($script:AllowedSuggestedLabels)
+}
+
 function Test-HasCodeFence {
     param([string] $Text)
     if (-not $Text) { return $false }
@@ -191,4 +201,4 @@ function Find-PossibleDuplicateIssue {
     $results | Sort-Object -Property Overlap -Descending
 }
 
-Export-ModuleMember -Function Get-IssueScopeClassification, Find-PossibleDuplicateIssue, ConvertTo-SafeLabelList
+Export-ModuleMember -Function Get-IssueScopeClassification, Find-PossibleDuplicateIssue, ConvertTo-SafeLabelList, Get-ManagedLabelSet

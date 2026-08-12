@@ -7,9 +7,14 @@
 
 Set-StrictMode -Version Latest
 
-$script:SchemaVersion = 1
+$script:SchemaVersion = 2
 
 function Get-TriageMarker {
+    <#
+        .SYNOPSIS
+        Builds the hidden HTML-comment marker used to find/update this issue's single triage
+        comment idempotently, instead of ever posting a duplicate.
+    #>
     param([Parameter(Mandatory)] [int] $IssueNumber)
     "<!-- public-al-issue-triage:v$($script:SchemaVersion):issue-$IssueNumber -->"
 }
@@ -28,11 +33,12 @@ function New-TriageReport {
         [Parameter(Mandatory)] [ValidateSet('in_scope', 'out_of_scope', 'needs_human')] [string] $Scope,
         [Parameter(Mandatory)] [string] $Category,
         [Parameter(Mandatory)] [string] $Reason,
-        [ValidateSet('reproduced', 'not_reproduced', 'blocked', 'not_attempted')] [string] $Reproduction = 'not_attempted',
+        [ValidateSet('reproduced', 'not_reproduced', 'inconclusive', 'blocked', 'not_attempted')] [string] $Reproduction = 'not_attempted',
         [ValidateSet('execution', 'unverified')] [string] $Proof = 'unverified',
         [ValidateSet('high', 'medium', 'low')] [string] $Confidence = 'low',
         [string] $Component = 'other',
         [ValidateSet('1-server-free', '2-container', '3-inconclusive', 'none')] [string] $Tier = 'none',
+        [bool] $RequiresContainer = $false,
         [hashtable] $TestedVersions = @{},
         [string] $Observed = '',
         [string] $Expected = '',
@@ -57,6 +63,7 @@ function New-TriageReport {
         confidence             = $Confidence
         component              = $Component
         tier                   = $Tier
+        requiresContainer      = $RequiresContainer
         testedVersions         = $TestedVersions
         observed               = $Observed
         expected               = $Expected
@@ -94,6 +101,9 @@ function Format-TriageComment {
     $lines.Add("- **Reproduction**: ``$($Report.reproduction)`` (proof: ``$($Report.proof)``, confidence: ``$($Report.confidence)``)")
     $lines.Add("- **Component**: $($Report.component)")
     $lines.Add("- **Reproduction tier**: $($Report.tier)")
+    if ($Report.requiresContainer) {
+        $lines.Add('- **Requires container**: yes - this fixture needs real Business Central symbols (Application/System) or AL execution that published ALTools alone cannot provide.')
+    }
 
     if ($Report.observed) { $lines.Add("- **Observed**: $($Report.observed)") }
     if ($Report.expected) { $lines.Add("- **Expected**: $($Report.expected)") }

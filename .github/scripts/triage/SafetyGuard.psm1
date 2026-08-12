@@ -9,14 +9,22 @@ Set-StrictMode -Version Latest
 
 # Each entry: a human-readable reason plus a regex matched against AL source. Kept as an ordered
 # list (not a single mega-regex) so a positive match always yields a precise, reportable reason.
+# Patterns intentionally match the *type/keyword usage* (e.g. ": DotNet") rather than trying to
+# capture the preceding identifier, so quoted identifiers with spaces (e.g. `"My Var": DotNet`)
+# are caught the same as plain ones.
 $script:UnsafeRuntimePatterns = @(
-    @{ Reason = 'Uses DotNet interop, which can call arbitrary .NET Framework/CLR code.'; Pattern = '(?im)^\s*[a-z0-9_]+\s*:\s*DotNet\b' },
+    @{ Reason = 'Uses DotNet interop, which can call arbitrary .NET Framework/CLR code.'; Pattern = '(?im):\s*DotNet\b' },
     @{ Reason = 'Declares or references a Control Add-in, which loads external host-integration code.'; Pattern = '(?i)\bControlAddIn\b' },
     @{ Reason = 'Uses HttpClient/HttpRequestMessage/HttpContent for arbitrary outbound network calls.'; Pattern = '(?i)\bHttp(Client|RequestMessage|ResponseMessage|Content)\b' },
-    @{ Reason = 'Uses the File data type or FileManagement codeunit for host file-system access.'; Pattern = '(?i)\b(FileManagement|File\s*:\s*File\b|"?File"?\s+Management)\b' },
+    @{ Reason = 'Uses a WebClient/WebRequest for arbitrary outbound network calls.'; Pattern = '(?i)\bWeb(Client|Request|Response)\b' },
+    @{ Reason = 'Uses the File data type for host file-system access.'; Pattern = '(?im):\s*File\b' },
+    @{ Reason = 'Accesses the virtual "File" system table, which exposes the host/server file system.'; Pattern = '(?i)\bRecord\s+"?File"?\b' },
+    @{ Reason = 'Uses the File Management codeunit for host file-system access.'; Pattern = '(?i)(\bFileManagement\b|"File Management")' },
+    @{ Reason = 'Uses an in-memory/host file stream (InStream/OutStream) or TempBlob-backed stream, which can be paired with file/network I/O.'; Pattern = '(?i)\b(InStream|OutStream)\b' },
     @{ Reason = 'Uses low-level Automation/OCX/native interop.'; Pattern = '(?i)\bAutomation\b' },
     @{ Reason = 'References a SMTP/mail client that may perform outbound network actions.'; Pattern = '(?i)\bSmtpClient\b' },
-    @{ Reason = 'Uses process/shell invocation, which is never permitted in an untrusted fixture.'; Pattern = '(?i)\b(Shell\(|Process\.(Start|Create)|System\.Diagnostics\.Process)\b' }
+    @{ Reason = 'Invokes Shell(...) for process/shell execution, which is never permitted in an untrusted fixture.'; Pattern = '(?i)\bShell\s*\(' },
+    @{ Reason = 'Uses process/shell invocation (Process.Start/Create or System.Diagnostics.Process), which is never permitted in an untrusted fixture.'; Pattern = '(?i)\b(Process\.(Start|Create)|System\.Diagnostics\.Process)\b' }
 )
 
 function Test-AlFixtureRuntimeSafety {

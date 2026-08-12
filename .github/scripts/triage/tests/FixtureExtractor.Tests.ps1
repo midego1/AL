@@ -1,5 +1,5 @@
 BeforeAll {
-    Import-Module (Join-Path $PSScriptRoot '..' 'FixtureExtractor.psm1') -Force
+    Import-Module (Join-Path -Path $PSScriptRoot -ChildPath '..' -AdditionalChildPath 'FixtureExtractor.psm1') -Force
 }
 
 Describe 'Get-AlCodeFixture' {
