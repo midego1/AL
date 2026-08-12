@@ -1,11 +1,13 @@
 # Public AL triage scope
 
-Use component ownership to determine scope. An issue is not in scope merely because it contains AL
+This file operationalizes the repository's `CONTRIBUTING.md`. Use component ownership and the
+documented intake channel to determine scope. An issue is not in scope merely because it contains AL
 code, occurs in Visual Studio Code, or can be reproduced against Business Central.
 
 ## In scope
 
-Issues owned by the AL developer-tooling stack are in scope, including:
+Reproducible bugs in the latest AL Language extension from the Visual Studio Code Marketplace or AL
+Developer Preview, the AL compiler, or accompanying developer tools are in scope, including:
 
 - AL language syntax, parsing, binding, type checking, diagnostics, compilation, metadata, and code
   generation;
@@ -18,14 +20,15 @@ Issues owned by the AL developer-tooling stack are in scope, including:
 - developer build and deployment tooling such as ALTool, package creation, symbol download,
   publish/install commands, authentication performed by those tools, and developer-facing error
   reporting;
-- documentation for the preceding developer-tooling features.
+- defects in repository-owned behavior or documentation for the preceding developer-tooling
+  features.
 
 An interaction with the Business Central server remains in scope when the defect belongs to the
 developer tool or protocol used to compile, publish, debug, or run tests.
 
 ## Out of scope
 
-Issues owned by application or business functionality are out of scope, including:
+The following reports are out of scope even when they mention AL:
 
 - incorrect business logic, calculations, workflows, posting behavior, reports, permissions, or data
   behavior in the Base Application, System Application, or another first-party application;
@@ -35,11 +38,29 @@ Issues owned by application or business functionality are out of scope, includin
 - implementation, design, or support questions for a specific customer or partner extension;
 - server/runtime defects unrelated to the AL developer experience, even when AL code exposes the
   behavior;
-- documentation for application functionality rather than AL developer tooling.
+- documentation for application functionality rather than AL developer tooling;
+- questions, implementation help, and general support requests;
+- feature requests and suggestions, including requests for new AL language, Visual Studio Code, or
+  static-analysis capabilities;
+- issues in mainstream-support versions of the compiler, developer tools, application, platform, or
+  another Business Central component rather than the latest public AL tooling;
+- Dynamics NAV 2018 or older tooling issues;
+- security vulnerabilities or reports containing sensitive security details.
 
-Route application and first-party extensibility issues to the repository or support channel that owns
-the affected application or Business Central feature. Do not investigate or propose the application
-change here.
+## Required routing
+
+Follow the destinations defined by `CONTRIBUTING.md`:
+
+| Report | Destination |
+|---|---|
+| First-party application extensibility | `microsoft/ALAppExtensions` |
+| Feature request or suggestion | Business Central Ideas (`https://aka.ms/bcideas`) |
+| Question or implementation help | The community resources linked from `CONTRIBUTING.md` |
+| Supported-version application, platform, compiler, or developer-tool issue | The Business Central support channel linked from `CONTRIBUTING.md` |
+| Dynamics NAV 2018 or older | The support channel |
+| Security vulnerability | Follow `SECURITY.md`; do not request public disclosure |
+
+Do not investigate or propose an application change after identifying one of these routes.
 
 ## Boundary examples
 
@@ -54,6 +75,8 @@ change here.
 | A first-party page or table needs a new integration event or field | Out of scope |
 | A test fails because the application under test contains incorrect business logic | Out of scope |
 | A customer extension uses an API incorrectly or needs implementation guidance | Out of scope |
+| A new AL language feature or analyzer rule is requested | Out of scope; route to Business Central Ideas |
+| A vulnerability in the AL extension is reported | Out of normal triage; follow `SECURITY.md` |
 
 For mixed or unclear reports, identify the component that would need to change. If the available
 evidence cannot distinguish developer tooling from application/server ownership, use

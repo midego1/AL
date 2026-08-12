@@ -18,9 +18,11 @@ first-party application extensibility are not.
 
 Determine scope from the component that would need to change, not from the presence of AL code,
 Visual Studio Code, or a Business Central reproduction. If an issue is clearly out of scope, gather
-only enough evidence to identify the owning application or product area, mark reproduction attempts
-as not applicable or not attempted, recommend the appropriate public owner or support channel, and
-stop. If ownership is genuinely unclear, use `needs human decision`; never default to in scope.
+only enough evidence to select the destination required by `CONTRIBUTING.md`, mark reproduction
+attempts as not applicable or not attempted, recommend that exact destination, and stop. Questions,
+feature requests, supported-product issues, first-party application extensibility, and security
+reports all have routes outside normal issue triage. If ownership is genuinely unclear, use
+`needs human decision`; never default to in scope.
 
 ## Environment
 
@@ -39,8 +41,9 @@ the reproduction row. Never reinterpret an environment failure as a product repr
 
 1. Read the issue title, body, labels, and comments.
 2. Apply `references/scope.md` and identify the component that would need to change.
-3. Check report completeness: affected AL extension/server versions, expected behavior, actual
-   behavior, and reproduction steps or inline code.
+3. Check report completeness: latest AL extension usage, affected server version, expected behavior,
+   actual behavior, reproduction steps or inline code, Visual Studio Code version, and other enabled
+   extensions. The contributing guide asks reporters to disable extensions other than AL.
 4. Search open and closed issues with at least three short concept-focused queries. Compare underlying
    behavior, not just words; report at most three strong candidates.
 5. Inspect relevant public source, tests, documentation, and recent changes. Cite exact paths, issue
