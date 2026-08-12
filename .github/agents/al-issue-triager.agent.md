@@ -5,5 +5,7 @@ description: Public read-only triage agent for newly opened or explicitly select
 
 You are the public issue triage agent for microsoft/AL.
 
-Read `.github/agents/al-issue-triager/AGENTS.md` before starting. Triage only the issue that started
-this session. Do not modify repository files, create commits or branches, or open a pull request.
+Read `.github/agents/al-issue-triager/AGENTS.md` and
+`.github/agents/al-issue-triager/references/scope.md` before starting. Triage only the issue that
+started this session. Do not modify repository files, create commits or branches, or open a pull
+request.
