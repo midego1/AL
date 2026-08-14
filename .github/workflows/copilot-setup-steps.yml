@@ -1,0 +1,101 @@
+name: Copilot Setup Steps
+
+# Copilot executes this job automatically before every coding-agent session. The manual trigger is
+# only for maintainers to validate the environment; it does not triage an issue.
+on:
+  workflow_dispatch:
+
+env:
+  COPILOT_AGENT_FIREWALL_ALLOW_LIST_ADDITIONS: "nuget.org,powershellgallery.com,azureedge.net,azurefd.net,mcr.microsoft.com,data.mcr.microsoft.com,cdn.mscr.io"
+
+jobs:
+  copilot-setup-steps:
+    runs-on: windows-latest
+    permissions:
+      contents: read
+    timeout-minutes: 59
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4.3.1
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Install latest public AL Development Tools
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          dotnet tool install --global Microsoft.Dynamics.BusinessCentral.Development.Tools --prerelease
+          $version = (& al --version 2>&1 | Out-String).Trim()
+          if (-not $version) {
+            throw 'The AL Development Tools installation did not report a version.'
+          }
+          "ALTOOL_VERSION=$version" | Add-Content -Path $env:GITHUB_ENV
+          Write-Host "Installed AL Development Tools: $version"
+
+      - name: Install BcContainerHelper
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          Install-Module BcContainerHelper -Force -Scope CurrentUser -Repository PSGallery
+          Import-Module BcContainerHelper -Force
+          Write-Host "Installed BcContainerHelper $((Get-Module BcContainerHelper).Version)."
+
+      - name: Start latest Business Central sandbox container
+        shell: pwsh
+        timeout-minutes: 35
+        run: |
+          $ErrorActionPreference = 'Stop'
+          Import-Module BcContainerHelper -Force
+
+          $artifactUrl = Get-BcArtifactUrl -Type Sandbox -Country w1 -Select Latest
+          if (-not $artifactUrl) {
+            throw 'Could not resolve the latest public Business Central sandbox artifact.'
+          }
+
+          $containerName = 'al-public-triage'
+          $passwordText = [guid]::NewGuid().ToString('N') + 'aA1!'
+          Write-Host "::add-mask::$passwordText"
+          $password = ConvertTo-SecureString $passwordText -AsPlainText -Force
+          $credential = [pscredential]::new('admin', $password)
+
+          New-BcContainer `
+            -Accept_Eula `
+            -ContainerName $containerName `
+            -ArtifactUrl $artifactUrl `
+            -Auth UserPassword `
+            -Credential $credential `
+            -UpdateHosts `
+            -Shortcuts None `
+            -IncludeAL
+
+          $container = Get-BcContainerId -ContainerName $containerName
+          if (-not $container) {
+            throw "Business Central container '$containerName' was not created."
+          }
+
+          "BC_CONTAINER_NAME=$containerName" | Add-Content -Path $env:GITHUB_ENV
+          "BC_ARTIFACT_URL=$artifactUrl" | Add-Content -Path $env:GITHUB_ENV
+          "BC_SERVER_URL=http://$containerName" | Add-Content -Path $env:GITHUB_ENV
+          "BC_SERVER_INSTANCE=BC" | Add-Content -Path $env:GITHUB_ENV
+          "BC_AUTHENTICATION=UserPassword" | Add-Content -Path $env:GITHUB_ENV
+          "BC_USERNAME=admin" | Add-Content -Path $env:GITHUB_ENV
+          "BC_PASSWORD=$passwordText" | Add-Content -Path $env:GITHUB_ENV
+          Write-Host "Started Business Central container '$containerName' from $artifactUrl."
+
+      - name: Verify triage environment
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          & al --version
+          $containerId = Get-BcContainerId -ContainerName $env:BC_CONTAINER_NAME
+          if (-not $containerId) {
+            throw "Business Central container '$env:BC_CONTAINER_NAME' is unavailable."
+          }
+          Write-Host "ALTool: $env:ALTOOL_VERSION"
+          Write-Host "BC artifact: $env:BC_ARTIFACT_URL"
+          Write-Host "BC container: $env:BC_CONTAINER_NAME ($containerId)"
+          Write-Host "BC endpoint: $env:BC_SERVER_URL/$env:BC_SERVER_INSTANCE"

@@ -1,0 +1,57 @@
+name: Start public AL issue triage agent
+
+# COPILOT_ASSIGNMENT_TOKEN must be a user-to-server token that can assign Copilot and has read/write
+# access to actions, contents, issues, and pull requests for this repository.
+on:
+  issues:
+    types: [opened]
+  workflow_dispatch:
+    inputs:
+      issue_number:
+        description: Issue number to triage
+        required: true
+        type: number
+
+permissions:
+  contents: read
+  issues: read
+
+concurrency:
+  group: public-al-issue-triage-${{ github.event.issue.number || github.event.inputs.issue_number }}
+  cancel-in-progress: false
+
+jobs:
+  start-triage-session:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Assign the issue to the AL triage agent
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.COPILOT_ASSIGNMENT_TOKEN }}
+          ISSUE_NUMBER: ${{ github.event.issue.number || github.event.inputs.issue_number }}
+        run: |
+          set -euo pipefail
+
+          if [[ -z "${GH_TOKEN:-}" ]]; then
+            echo "::error::COPILOT_ASSIGNMENT_TOKEN is required to start a Copilot cloud-agent session."
+            exit 1
+          fi
+
+          gh api \
+            --method POST \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "/repos/${GITHUB_REPOSITORY}/issues/${ISSUE_NUMBER}/assignees" \
+            --input - <<JSON
+          {
+            "assignees": ["copilot-swe-agent[bot]"],
+            "agent_assignment": {
+              "target_repo": "${GITHUB_REPOSITORY}",
+              "base_branch": "${{ github.event.repository.default_branch }}",
+              "custom_agent": "al-issue-triager",
+              "custom_instructions": "Triage issue #${ISSUE_NUMBER}. Post exactly one standardized public triage comment, make no repository changes, and do not create a pull request.",
+              "model": ""
+            }
+          }
+          JSON
