@@ -42,6 +42,25 @@ Use the diagnostic ID to find the relevant [AL code analysis documentation](http
 Configure rule severity with a [ruleset](https://learn.microsoft.com/dynamics365/business-central/dev-itpro/developer/devenv-using-code-analysis-tool-with-rule-set).
 AppSourceCop and PerTenantExtensionCop must not be enabled together.
 
+## AI-assisted AL development
+
+The AL Language extension and the
+[AL Development Tools package](https://www.nuget.org/packages/Microsoft.Dynamics.BusinessCentral.Development.Tools/)
+support AI-assisted AL development:
+
+- Visual Studio Code Language Model Tools for interactive use with GitHub Copilot.
+- AL MCP Server (`altool launchmcpserver`) for MCP-compatible agents, headless automation, and
+  CI/CD scenarios.
+- AL LSP Server (`altool launchlspserver`) for semantic navigation such as definitions,
+  references, completions, rename, and type hierarchy.
+
+See [AI agent tools for AL development](https://learn.microsoft.com/dynamics365/business-central/dev-itpro/developer/al-agent-tools/al-agent-tools-overview)
+and the [AL Development Tools package](https://learn.microsoft.com/dynamics365/business-central/dev-itpro/developer/devenv-al-tool-package).
+
+When reporting a problem, include the Development Tools or AL Language version, agent host, command
+or transport, minimal workspace, and sanitized diagnostic log. Never include authentication tokens or
+customer data.
+
 ## Investigate performance
 
 For a slow AL development environment, start with
