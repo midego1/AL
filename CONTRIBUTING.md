@@ -33,7 +33,7 @@ If you are targeting Dynamics NAV 2018 or older, you must use the AL extension p
 For issues concerning versions of Business Central that are in mainstream support you should use the [support channel](#support).
 
 #### **Extensibility of first-party AL applications**
-For issues related to the extensibility of applications authored by Microsoft, such as the `System Application` or the `Base Application`, use the [ALAppExtensions](https://github.com/Microsoft/ALAppExtensions) repository.
+For issues related to the extensibility of applications authored by Microsoft, such as the `System Application` or the `Base Application`, use the [BCApps issue intake](https://github.com/microsoft/BCApps/issues/new/choose).
 
 #### **Feature requests and suggestions**
 For new features in AL/Visual Studio Code language and tools, as well as Business Central in general, use [Business Central Ideas](https://aka.ms/bcideas). 

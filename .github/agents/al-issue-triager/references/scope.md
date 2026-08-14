@@ -1,10 +1,8 @@
 # Public AL triage scope
 
 This file operationalizes the repository's `CONTRIBUTING.md`. Use component ownership and the
-documented intake channel to determine scope. When a linked destination publishes a migration or
-retirement notice, follow that destination's current intake instructions rather than the older link in
-`CONTRIBUTING.md`. An issue is not in scope merely because it contains AL code, occurs in Visual Studio
-Code, or can be reproduced against Business Central.
+documented intake channel to determine scope. An issue is not in scope merely because it contains AL
+code, occurs in Visual Studio Code, or can be reproduced against Business Central.
 
 ## In scope
 
@@ -55,7 +53,7 @@ Follow the destinations defined by `CONTRIBUTING.md`:
 
 | Report | Destination |
 |---|---|
-| First-party application extensibility | Follow the [`ALAppExtensions` retirement notice](https://github.com/microsoft/ALAppExtensions#business-central-extensibility-requests): use `microsoft/ALAppExtensions` through 31 August 2026 and the [`microsoft/BCApps` issue intake](https://github.com/microsoft/BCApps/issues/new/choose) from 1 September 2026 |
+| First-party application extensibility | [`microsoft/BCApps` issue intake](https://github.com/microsoft/BCApps/issues/new/choose) |
 | Feature request or suggestion | Business Central Ideas (`https://aka.ms/bcideas`) |
 | Question or implementation help | The community resources linked from `CONTRIBUTING.md` |
 | Supported-version application, platform, compiler, or developer-tool issue | The Business Central support channel linked from `CONTRIBUTING.md` |
