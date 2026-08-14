@@ -24,6 +24,10 @@ feature requests, supported-product issues, first-party application extensibilit
 reports all have routes outside normal issue triage. If ownership is genuinely unclear, use
 `needs human decision`; never default to in scope.
 
+For first-party application extensibility, follow the dated `ALAppExtensions` retirement and migration
+instructions in `references/scope.md`; do not route new requests to a repository after its intake
+cutoff.
+
 ## Environment
 
 The setup workflow provides:
