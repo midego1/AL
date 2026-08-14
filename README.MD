@@ -19,9 +19,9 @@ Bugs pertaining to the AL compiler and the developer tools for the latest versio
 
 See the [triage process](https://github.com/Microsoft/AL/wiki/Triage-Process) document for more information on how we handle incoming requests.
 
-## Community
+## Support and community
 
-Our answers to frequently asked questions can be found in our [FAQ](https://github.com/Microsoft/AL/wiki/Frequently-Asked-Questions). To get help from community members please use one of the following resources:
+For issue routing, diagnostics, and performance guidance, see [Support and diagnostics](SUPPORT.md). To get help from community members please use one of the following resources:
 
 - [Business Central Community](https://community.dynamics.com/business/f/758)
 - [Yammer groups for partners](https://aka.ms/BCYammer)

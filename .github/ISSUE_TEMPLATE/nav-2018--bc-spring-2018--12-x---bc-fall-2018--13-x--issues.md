@@ -15,4 +15,4 @@ You can open Support Request to CSS through PartnerSource portal or contact your
 
 For more details please read:
 https://blogs.msdn.microsoft.com/nav/2018/05/03/al-developer-previews-multiple-releases-and-github/
-https://github.com/Microsoft/AL/wiki/Frequently-Asked-Questions#i-found-an-issue-on-nav-2018-what-do-i-do
+https://github.com/Microsoft/AL/blob/master/SUPPORT.md
