@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 env:
-  COPILOT_AGENT_FIREWALL_ALLOW_LIST_ADDITIONS: "nuget.org,powershellgallery.com,azureedge.net,azurefd.net,mcr.microsoft.com,data.mcr.microsoft.com,cdn.mscr.io"
+  COPILOT_AGENT_FIREWALL_ALLOW_LIST_ADDITIONS: "nuget.org,powershellgallery.com,bcinsider.blob.core.windows.net,azureedge.net,azurefd.net,mcr.microsoft.com,data.mcr.microsoft.com,cdn.mscr.io"
 
 jobs:
   copilot-setup-steps:
@@ -44,16 +44,20 @@ jobs:
           Import-Module BcContainerHelper -Force
           Write-Host "Installed BcContainerHelper $((Get-Module BcContainerHelper).Version)."
 
-      - name: Start latest Business Central sandbox container
+      - name: Start latest BCInsider Platform master sandbox
         shell: pwsh
         timeout-minutes: 35
         run: |
           $ErrorActionPreference = 'Stop'
           Import-Module BcContainerHelper -Force
 
-          $artifactUrl = Get-BcArtifactUrl -Type Sandbox -Country w1 -Select Latest
+          $artifactUrl = Get-BcArtifactUrl -Type Sandbox -Country w1 -Select Latest `
+            -StorageAccount bcinsider -Accept_InsiderEula
           if (-not $artifactUrl) {
-            throw 'Could not resolve the latest public Business Central sandbox artifact.'
+            throw 'Could not resolve the latest BCInsider Platform master sandbox artifact.'
+          }
+          if ([string]$artifactUrl -notmatch '(?i)bcinsider') {
+            throw "Expected a BCInsider artifact, but resolved '$artifactUrl'."
           }
 
           $containerName = 'al-public-triage'
@@ -64,6 +68,7 @@ jobs:
 
           New-BcContainer `
             -Accept_Eula `
+            -Accept_InsiderEula `
             -ContainerName $containerName `
             -ArtifactUrl $artifactUrl `
             -Auth UserPassword `

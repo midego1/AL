@@ -32,7 +32,8 @@ Route first-party application extensibility directly to the `BCApps` issue intak
 The setup workflow provides:
 
 - the latest public prerelease `Microsoft.Dynamics.BusinessCentral.Development.Tools` (`al`);
-- a running Business Central sandbox container created from the latest public W1 sandbox artifact;
+- a running Business Central sandbox container created from the latest BCInsider Platform master W1
+  artifact, with no public `bcartifacts` fallback;
 - `ALTOOL_VERSION`, `BC_ARTIFACT_URL`, `BC_CONTAINER_NAME`, `BC_SERVER_URL`,
   `BC_SERVER_INSTANCE`, `BC_AUTHENTICATION`, `BC_USERNAME`, and the masked, ephemeral `BC_PASSWORD`.
 
@@ -53,7 +54,7 @@ the reproduction row. Never reinterpret an environment failure as a product repr
    numbers, commits, or public URLs.
 6. Attempt safe reproduction when the issue is in scope and provides sufficient inline material:
    - use the installed latest AL Development Tools for compiler/tooling checks;
-   - use the running latest Business Central sandbox for publish/runtime checks;
+   - use the running latest BCInsider Platform master sandbox for publish/runtime checks;
    - create temporary fixtures outside the repository checkout;
    - record exact commands and observed results;
    - remove temporary fixtures when done.
