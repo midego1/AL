@@ -23,6 +23,7 @@ foreach ($text in @(
     'Upload triage report',
     '$rawOutput.Substring($headingIndex).Trim()',
     "StartsWith('## Automated AL issue triage'",
+    "'al-language' = @{",
     "command = 'al'",
     "@('launchmcpserver', '--transport', 'stdio')",
     '--additional-mcp-config "@$mcpConfigPath"',
@@ -40,6 +41,7 @@ foreach ($text in @(
 }
 
 foreach ($text in @(
+    'AL language MCP server launched by ALTool',
     '`al_downloadsymbols`',
     'never invoke `alc.exe` directly',
     'never call `/dev/packages` manually',

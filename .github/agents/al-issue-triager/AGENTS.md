@@ -38,7 +38,8 @@ The setup workflow provides:
 - `ALTOOL_VERSION`, `BC_ARTIFACT_URL`, `BC_CONTAINER_NAME`, `BC_SERVER_URL`,
   `BC_SERVER_INSTANCE`, `BC_AUTHENTICATION`, `BC_SERVER_USERNAME`, and the masked, ephemeral
   `BC_SERVER_PASSWORD`;
-- an `altool` MCP server exposing `al_downloadsymbols` and the other AL workspace tools.
+- an AL language MCP server launched by ALTool, exposing `al_downloadsymbols` and the other AL
+  workspace tools.
 
 Start by verifying `al --version`, the environment variables, and container availability. If
 setup is incomplete, continue with safe read-only investigation and record the exact setup failure in
@@ -56,7 +57,7 @@ the reproduction row. Never reinterpret an environment failure as a product repr
 5. Inspect relevant public source, tests, documentation, and recent changes. Cite exact paths, issue
    numbers, commits, or public URLs.
 6. Attempt safe reproduction when the issue is in scope and provides sufficient inline material:
-   - use the installed latest AL Development Tools through the `altool` MCP server for
+   - use the installed ALTool command-line tool and the AL language MCP server it launches for
      project/workspace creation, `al_downloadsymbols`, analyzer execution, compilation, publish, and
      tests;
    - when `app.json` references platform, application, or dependency packages, invoke

@@ -132,7 +132,7 @@ jobs:
           $mcpConfigPath = Join-Path $env:RUNNER_TEMP 'al-triage-mcp.json'
           @{
             mcpServers = @{
-              altool = @{
+              'al-language' = @{
                 type = 'local'
                 command = 'al'
                 args = @('launchmcpserver', '--transport', 'stdio')
@@ -144,11 +144,12 @@ jobs:
           Triage public microsoft/AL issue #$env:TRIAGE_ISSUE_NUMBER.
           Read the complete issue payload from '$env:TRIAGE_ISSUE_PATH'.
           Follow the al-issue-triager custom agent and its AGENTS.md contract.
-          Investigate and reproduce safely using the altool MCP tools and running BCInsider container.
-          Use al_downloadsymbols before compiling projects with symbol references. Do not invoke
-          alc.exe directly or call /dev/packages manually. Do not modify tracked repository files,
-          create a branch, commit, pull request, label, assignment, or GitHub comment. Return only
-          the final standardized markdown issue comment; the workflow will validate it.
+          Investigate and reproduce safely using ALTool and the AL language MCP tools exposed by
+          `al launchmcpserver`, plus the running BCInsider sandbox. Use al_downloadsymbols before
+          compiling projects with symbol references. Do not invoke alc.exe directly or call
+          /dev/packages manually. Do not modify tracked repository files, create a branch, commit,
+          pull request, label, assignment, or GitHub comment. Return only the final standardized
+          markdown issue comment; the workflow will validate it.
           "@
 
           & copilot `
