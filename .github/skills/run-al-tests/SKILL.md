@@ -13,6 +13,7 @@ argument-hint: "<codeunit-id> [project-folder] [test-methods]"
        --server $env:BC_SERVER_URL `
        --serverinstance $env:BC_SERVER_INSTANCE `
        --port $env:BC_SERVER_PORT `
+       --tenant $env:BC_TENANT `
        --authentication $env:BC_AUTHENTICATION `
        --environmenttype OnPrem
    ```

@@ -51,6 +51,7 @@ foreach ($name in @(
     'BC_SERVER_URL',
     'BC_SERVER_INSTANCE',
     'BC_SERVER_PORT',
+    'BC_TENANT',
     'BC_AUTHENTICATION',
     'BC_SERVER_USERNAME',
     'BC_SERVER_PASSWORD'
@@ -186,6 +187,7 @@ try {
             serverUrl = $env:BC_SERVER_URL
             serverInstance = $env:BC_SERVER_INSTANCE
             port = [int]$env:BC_SERVER_PORT
+            tenant = $env:BC_TENANT
             environmentType = 'OnPrem'
             authentication = $env:BC_AUTHENTICATION
             force = [bool]$Force

@@ -89,6 +89,7 @@ jobs:
           "BC_SERVER_URL=http://$containerName" | Add-Content -Path $env:GITHUB_ENV
           "BC_SERVER_INSTANCE=BC" | Add-Content -Path $env:GITHUB_ENV
           "BC_SERVER_PORT=7049" | Add-Content -Path $env:GITHUB_ENV
+          "BC_TENANT=default" | Add-Content -Path $env:GITHUB_ENV
           "BC_AUTHENTICATION=UserPassword" | Add-Content -Path $env:GITHUB_ENV
           "BC_SERVER_USERNAME=admin" | Add-Content -Path $env:GITHUB_ENV
           "BC_SERVER_PASSWORD=$passwordText" | Add-Content -Path $env:GITHUB_ENV

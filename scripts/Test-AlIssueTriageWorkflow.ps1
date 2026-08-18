@@ -39,16 +39,19 @@ foreach ($text in @(
     'ALTOOL_PATH=$altoolPath',
     'Invoke verify-prerelease-altool first',
     'run-al-code-analysis, publish-al-app, run-al-tests, and verify-al-e2e',
+    'Verify prerelease ALTool sandbox access',
     'BC_SERVER_USERNAME=admin',
     'BC_SERVER_PASSWORD=$passwordText',
-    'BC_SERVER_PORT=7049'
+    'BC_SERVER_PORT=7049',
+    'BC_TENANT=default'
 )) {
     Assert-Contains $workflow $text
 }
 
 foreach ($text in @(
     'BC_SERVER_USERNAME=admin',
-    'BC_SERVER_PASSWORD=$passwordText'
+    'BC_SERVER_PASSWORD=$passwordText',
+    'BC_TENANT=default'
 )) {
     Assert-Contains $setup $text
 }
@@ -70,6 +73,7 @@ foreach ($text in @(
     "'al_downloadsymbols'",
     'BC_SERVER_USERNAME',
     'BC_SERVER_PASSWORD',
+    'BC_TENANT',
     "contains no symbol packages"
 )) {
     Assert-Contains $symbolScript $text

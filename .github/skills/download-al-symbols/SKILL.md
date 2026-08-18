@@ -12,9 +12,9 @@ Run the deterministic wrapper:
 ```
 
 The wrapper uses only the prerelease ALTool installed by the workflow at `ALTOOL_PATH`. It invokes
-ALTool's symbol-download capability non-interactively with the sandbox connection and credentials
-provided by the workflow, writes packages to `<project>\.alpackages`, and fails unless at least one
-package is present.
+ALTool's symbol-download capability non-interactively with the sandbox connection, tenant, and
+credentials provided by the workflow, writes packages to `<project>\.alpackages`, and fails unless
+at least one package is present.
 
 Do not invoke `alc.exe`, launch or script an MCP server yourself, or call `/dev/packages` directly.
 After the wrapper succeeds, compile through ALTool and pass the populated `.alpackages` path.
