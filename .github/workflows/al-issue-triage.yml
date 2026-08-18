@@ -61,7 +61,9 @@ jobs:
           if (-not $alVersion) {
             throw 'The AL Development Tools installation did not report a version.'
           }
+          $altoolPath = (Get-Command al -ErrorAction Stop).Source
           "ALTOOL_VERSION=$alVersion" | Add-Content -Path $env:GITHUB_ENV
+          "ALTOOL_PATH=$altoolPath" | Add-Content -Path $env:GITHUB_ENV
 
       - name: Start latest BCInsider Platform master sandbox
         shell: pwsh
@@ -103,6 +105,7 @@ jobs:
           "BC_ARTIFACT_URL=$artifactUrl" | Add-Content -Path $env:GITHUB_ENV
           "BC_SERVER_URL=http://$containerName" | Add-Content -Path $env:GITHUB_ENV
           "BC_SERVER_INSTANCE=BC" | Add-Content -Path $env:GITHUB_ENV
+          "BC_SERVER_PORT=7049" | Add-Content -Path $env:GITHUB_ENV
           "BC_AUTHENTICATION=UserPassword" | Add-Content -Path $env:GITHUB_ENV
           "BC_SERVER_USERNAME=admin" | Add-Content -Path $env:GITHUB_ENV
           "BC_SERVER_PASSWORD=$passwordText" | Add-Content -Path $env:GITHUB_ENV
@@ -129,24 +132,13 @@ jobs:
           $ErrorActionPreference = 'Stop'
           $commentPath = Join-Path $env:RUNNER_TEMP 'al-triage-comment.md'
           $errorPath = Join-Path $env:RUNNER_TEMP 'al-triage-error.log'
-          $mcpConfigPath = Join-Path $env:RUNNER_TEMP 'al-triage-mcp.json'
-          @{
-            mcpServers = @{
-              'al-language' = @{
-                type = 'local'
-                command = 'al'
-                args = @('launchmcpserver', '--transport', 'stdio')
-                tools = @('*')
-              }
-            }
-          } | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath $mcpConfigPath -Encoding utf8
           $prompt = @"
           Triage public microsoft/AL issue #$env:TRIAGE_ISSUE_NUMBER.
           Read the complete issue payload from '$env:TRIAGE_ISSUE_PATH'.
           Follow the al-issue-triager custom agent and its AGENTS.md contract.
-          Investigate and reproduce safely using ALTool and the AL language MCP tools exposed by
-          `al launchmcpserver`, plus the running BCInsider sandbox. Use al_downloadsymbols before
-          compiling projects with symbol references. Do not invoke alc.exe directly or call
+          Investigate and reproduce safely using the freshly installed prerelease ALTool and running
+          BCInsider sandbox. Invoke the download-al-symbols skill before compiling projects with
+          symbol references. Do not launch or script an MCP server, invoke alc.exe directly, or call
           /dev/packages manually. Do not modify tracked repository files, create a branch, commit,
           pull request, label, assignment, or GitHub comment. Return only the final standardized
           markdown issue comment; the workflow will validate it.
@@ -160,7 +152,6 @@ jobs:
             --no-remote `
             --no-remote-export `
             --disable-builtin-mcps `
-            --additional-mcp-config "@$mcpConfigPath" `
             --allow-all-tools `
             --allow-all-paths `
             --allow-all-urls `

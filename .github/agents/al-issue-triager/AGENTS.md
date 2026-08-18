@@ -38,8 +38,8 @@ The setup workflow provides:
 - `ALTOOL_VERSION`, `BC_ARTIFACT_URL`, `BC_CONTAINER_NAME`, `BC_SERVER_URL`,
   `BC_SERVER_INSTANCE`, `BC_AUTHENTICATION`, `BC_SERVER_USERNAME`, and the masked, ephemeral
   `BC_SERVER_PASSWORD`;
-- an AL language MCP server launched by ALTool, exposing `al_downloadsymbols` and the other AL
-  workspace tools.
+- a deterministic `download-al-symbols` skill that invokes the freshly installed prerelease ALTool
+  non-interactively.
 
 Start by verifying `al --version`, the environment variables, and container availability. If
 setup is incomplete, continue with safe read-only investigation and record the exact setup failure in
@@ -57,20 +57,20 @@ the reproduction row. Never reinterpret an environment failure as a product repr
 5. Inspect relevant public source, tests, documentation, and recent changes. Cite exact paths, issue
    numbers, commits, or public URLs.
 6. Attempt safe reproduction when the issue is in scope and provides sufficient inline material:
-   - use the installed ALTool command-line tool and the AL language MCP server it launches for
-     project/workspace creation, `al_downloadsymbols`, analyzer execution, compilation, publish, and
-     tests;
+   - use the freshly installed prerelease ALTool command-line tool for project/workspace creation,
+     symbol download, analyzer execution, compilation, publish, and tests;
    - when `app.json` references platform, application, or dependency packages, invoke
-     `al_downloadsymbols` before compiling and confirm that `.alpackages` contains the requested
-     packages;
+     `download-al-symbols` before compiling and confirm that `.alpackages` contains the requested
+     packages. The skill owns ALTool's internal symbol-download protocol; do not launch or script an
+     MCP server yourself;
    - never invoke `alc.exe` directly and never call `/dev/packages` manually; those paths bypass the
      configured ALTool workspace and non-interactive sandbox credentials;
    - use the running latest BCInsider Platform master sandbox for publish/runtime checks;
    - create temporary fixtures outside the repository checkout;
    - record exact commands and observed results;
    - remove temporary fixtures when done.
-7. If an ALTool operation fails, report the exact tool call and response. A direct compiler failure or
-   manual HTTP 401 is not evidence that ALTool cannot obtain symbols.
+7. If an ALTool operation fails, report the exact command or skill call and response. A direct
+   compiler failure or manual HTTP 401 is not evidence that ALTool cannot obtain symbols.
 8. If reproduction is unsafe or impossible, state the exact missing input or environment capability.
 9. Keep observed evidence separate from hypotheses. Never claim a root cause, regression, duplicate,
    or reproduction without evidence.

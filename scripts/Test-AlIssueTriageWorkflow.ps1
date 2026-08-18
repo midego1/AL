@@ -8,6 +8,12 @@ $setup = Get-Content (Join-Path $repositoryRoot '.github\workflows\copilot-setup
 $instructions = Get-Content (
     Join-Path $repositoryRoot '.github\agents\al-issue-triager\AGENTS.md'
 ) -Raw
+$symbolSkill = Get-Content (
+    Join-Path $repositoryRoot '.github\skills\download-al-symbols\SKILL.md'
+) -Raw
+$symbolScript = Get-Content (
+    Join-Path $repositoryRoot '.github\skills\download-al-symbols\Invoke-DownloadAlSymbols.ps1'
+) -Raw
 
 function Assert-Contains([string] $Text, [string] $Expected) {
     if (-not $Text.Contains($Expected)) {
@@ -18,17 +24,17 @@ function Assert-Contains([string] $Text, [string] $Expected) {
 foreach ($text in @(
     'dry_run:',
     'default: true',
+    'Microsoft.Dynamics.BusinessCentral.Development.Tools --prerelease',
     "TRIAGE_DRY_RUN: `${{ github.event_name == 'issues' || inputs.dry_run }}",
     "if: env.TRIAGE_DRY_RUN != 'true'",
     'Upload triage report',
     '$rawOutput.Substring($headingIndex).Trim()',
     "StartsWith('## Automated AL issue triage'",
-    "'al-language' = @{",
-    "command = 'al'",
-    "@('launchmcpserver', '--transport', 'stdio')",
-    '--additional-mcp-config "@$mcpConfigPath"',
+    'ALTOOL_PATH=$altoolPath',
+    'Invoke the download-al-symbols skill',
     'BC_SERVER_USERNAME=admin',
-    'BC_SERVER_PASSWORD=$passwordText'
+    'BC_SERVER_PASSWORD=$passwordText',
+    'BC_SERVER_PORT=7049'
 )) {
     Assert-Contains $workflow $text
 }
@@ -41,14 +47,42 @@ foreach ($text in @(
 }
 
 foreach ($text in @(
-    'AL language MCP server launched by ALTool',
-    '`al_downloadsymbols`',
+    'freshly installed prerelease ALTool',
+    '`download-al-symbols`',
     'never invoke `alc.exe` directly',
     'never call `/dev/packages` manually',
     'Do not disclose sandbox/container availability',
     'The first output characters must'
 )) {
     Assert-Contains $instructions $text
+}
+
+foreach ($text in @(
+    '$env:ALTOOL_PATH',
+    '& $altoolPath --version',
+    "'al_downloadsymbols'",
+    'BC_SERVER_USERNAME',
+    'BC_SERVER_PASSWORD',
+    "contains no symbol packages"
+)) {
+    Assert-Contains $symbolScript $text
+}
+
+foreach ($text in @(
+    'prerelease ALTool',
+    'Do not invoke `alc.exe`',
+    'Do not invoke `alc.exe`, launch or script an MCP server yourself'
+)) {
+    Assert-Contains $symbolSkill $text
+}
+
+foreach ($forbidden in @(
+    '--additional-mcp-config',
+    "'al-language' = @{"
+)) {
+    if ($workflow.Contains($forbidden)) {
+        throw "The triage agent still receives direct MCP configuration: $forbidden"
+    }
 }
 
 if ($instructions.Contains('**Business Central container:**') -or
