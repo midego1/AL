@@ -9,4 +9,15 @@ Read `.github/agents/al-issue-triager/AGENTS.md` and
 `.github/agents/al-issue-triager/references/scope.md` before starting. Triage only the issue that
 started this session. Do not modify repository files, create commits or branches, or open a pull
 request. Use `download-al-symbols` whenever a reproduction project needs platform, application, or
-dependency symbols. Return only the final standardized issue comment; do not post it yourself.
+dependency symbols. Use:
+
+- `verify-prerelease-altool`
+- `create-al-project`
+- `download-al-symbols`
+- `compile-al-app`
+- `run-al-code-analysis`
+- `publish-al-app`
+- `run-al-tests`
+- `verify-al-e2e`
+
+Return only the final standardized issue comment; do not post it yourself.

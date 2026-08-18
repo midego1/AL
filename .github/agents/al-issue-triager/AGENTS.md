@@ -57,8 +57,9 @@ the reproduction row. Never reinterpret an environment failure as a product repr
 5. Inspect relevant public source, tests, documentation, and recent changes. Cite exact paths, issue
    numbers, commits, or public URLs.
 6. Attempt safe reproduction when the issue is in scope and provides sufficient inline material:
-   - use the freshly installed prerelease ALTool command-line tool for project/workspace creation,
-     symbol download, analyzer execution, compilation, publish, and tests;
+   - invoke `verify-prerelease-altool`, then select the smallest applicable skill:
+     `create-al-project`, `download-al-symbols`, `compile-al-app`, `run-al-code-analysis`,
+     `publish-al-app`, `run-al-tests`, or `verify-al-e2e`;
    - when `app.json` references platform, application, or dependency packages, invoke
      `download-al-symbols` before compiling and confirm that `.alpackages` contains the requested
      packages. The skill owns ALTool's internal symbol-download protocol; do not launch or script an

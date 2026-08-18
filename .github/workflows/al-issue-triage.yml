@@ -137,11 +137,13 @@ jobs:
           Read the complete issue payload from '$env:TRIAGE_ISSUE_PATH'.
           Follow the al-issue-triager custom agent and its AGENTS.md contract.
           Investigate and reproduce safely using the freshly installed prerelease ALTool and running
-          BCInsider sandbox. Invoke the download-al-symbols skill before compiling projects with
-          symbol references. Do not launch or script an MCP server, invoke alc.exe directly, or call
-          /dev/packages manually. Do not modify tracked repository files, create a branch, commit,
-          pull request, label, assignment, or GitHub comment. Return only the final standardized
-          markdown issue comment; the workflow will validate it.
+          BCInsider sandbox. Invoke verify-prerelease-altool first, then use the smallest applicable
+          skill chain from create-al-project, download-al-symbols, compile-al-app,
+          run-al-code-analysis, publish-al-app, run-al-tests, and verify-al-e2e. Do not launch or
+          script an MCP server, invoke alc.exe directly, or call BC HTTP endpoints manually. Do not
+          modify tracked repository files, create a branch, commit, pull request, label, assignment,
+          or GitHub comment. Return only the final standardized markdown issue comment; the workflow
+          will validate it.
           "@
 
           & copilot `

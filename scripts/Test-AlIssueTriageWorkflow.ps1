@@ -14,6 +14,12 @@ $symbolSkill = Get-Content (
 $symbolScript = Get-Content (
     Join-Path $repositoryRoot '.github\skills\download-al-symbols\Invoke-DownloadAlSymbols.ps1'
 ) -Raw
+$compileScript = Get-Content (
+    Join-Path $repositoryRoot '.github\skills\compile-al-app\Invoke-CompileAlApp.ps1'
+) -Raw
+$agentRegistration = Get-Content (
+    Join-Path $repositoryRoot '.github\agents\al-issue-triager.agent.md'
+) -Raw
 
 function Assert-Contains([string] $Text, [string] $Expected) {
     if (-not $Text.Contains($Expected)) {
@@ -31,7 +37,8 @@ foreach ($text in @(
     '$rawOutput.Substring($headingIndex).Trim()',
     "StartsWith('## Automated AL issue triage'",
     'ALTOOL_PATH=$altoolPath',
-    'Invoke the download-al-symbols skill',
+    'Invoke verify-prerelease-altool first',
+    'run-al-code-analysis, publish-al-app, run-al-tests, and verify-al-e2e',
     'BC_SERVER_USERNAME=admin',
     'BC_SERVER_PASSWORD=$passwordText',
     'BC_SERVER_PORT=7049'
@@ -67,6 +74,22 @@ foreach ($text in @(
 )) {
     Assert-Contains $symbolScript $text
 }
+if ($symbolScript.Contains('Get-Command al')) {
+    throw 'The symbol wrapper can escape the workflow-installed prerelease ALTool.'
+}
+
+foreach ($text in @(
+    '$env:ALTOOL_PATH',
+    '$env:ALTOOL_VERSION',
+    '"/project:$project"',
+    'Invoke download-al-symbols first',
+    'GetPackageManifest'
+)) {
+    Assert-Contains $compileScript $text
+}
+if ($compileScript.Contains('alc.exe')) {
+    throw 'The compile wrapper invokes the compiler directly.'
+}
 
 foreach ($text in @(
     'prerelease ALTool',
@@ -74,6 +97,24 @@ foreach ($text in @(
     'Do not invoke `alc.exe`, launch or script an MCP server yourself'
 )) {
     Assert-Contains $symbolSkill $text
+}
+
+$requiredSkills = @(
+    'verify-prerelease-altool',
+    'create-al-project',
+    'download-al-symbols',
+    'compile-al-app',
+    'run-al-code-analysis',
+    'publish-al-app',
+    'run-al-tests',
+    'verify-al-e2e'
+)
+foreach ($skill in $requiredSkills) {
+    $skillPath = Join-Path $repositoryRoot ".github\skills\$skill\SKILL.md"
+    if (-not (Test-Path -LiteralPath $skillPath -PathType Leaf)) {
+        throw "Required triage skill is missing: $skill"
+    }
+    Assert-Contains $agentRegistration "- ``$skill``"
 }
 
 foreach ($forbidden in @(

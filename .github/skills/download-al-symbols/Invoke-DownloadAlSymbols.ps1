@@ -33,7 +33,7 @@ if ($referenceCount -eq 0) {
 
 $altoolPath = $env:ALTOOL_PATH
 if ([string]::IsNullOrWhiteSpace($altoolPath)) {
-    $altoolPath = (Get-Command al -ErrorAction Stop).Source
+    throw 'ALTOOL_PATH is unavailable. The workflow-installed prerelease ALTool is required.'
 }
 if (-not (Test-Path -LiteralPath $altoolPath -PathType Leaf)) {
     throw "Prerelease ALTool not found: $altoolPath"
@@ -83,6 +83,7 @@ $startInfo.ArgumentList.Add($packageCache)
 $process = [Diagnostics.Process]::new()
 $process.StartInfo = $startInfo
 $requestId = 0
+$processStarted = $false
 
 function Send-Request {
     param(
@@ -137,6 +138,7 @@ function Send-Request {
 
 try {
     $process.Start() | Out-Null
+    $processStarted = $true
 
     $ready = $false
     $deadline = [DateTime]::UtcNow.AddSeconds(30)
@@ -220,12 +222,8 @@ try {
     } | ConvertTo-Json -Depth 5
 }
 finally {
-    try {
+    if ($processStarted -and -not $process.HasExited) {
         $process.StandardInput.Close()
-    }
-    catch {
-    }
-    if (-not $process.HasExited) {
         $process.Kill()
         $process.WaitForExit(3000) | Out-Null
     }
