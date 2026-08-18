@@ -87,8 +87,8 @@ jobs:
           "BC_SERVER_URL=http://$containerName" | Add-Content -Path $env:GITHUB_ENV
           "BC_SERVER_INSTANCE=BC" | Add-Content -Path $env:GITHUB_ENV
           "BC_AUTHENTICATION=UserPassword" | Add-Content -Path $env:GITHUB_ENV
-          "BC_USERNAME=admin" | Add-Content -Path $env:GITHUB_ENV
-          "BC_PASSWORD=$passwordText" | Add-Content -Path $env:GITHUB_ENV
+          "BC_SERVER_USERNAME=admin" | Add-Content -Path $env:GITHUB_ENV
+          "BC_SERVER_PASSWORD=$passwordText" | Add-Content -Path $env:GITHUB_ENV
           Write-Host "Started Business Central container '$containerName' from $artifactUrl."
 
       - name: Verify triage environment

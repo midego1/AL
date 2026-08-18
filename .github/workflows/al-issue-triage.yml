@@ -9,6 +9,11 @@ on:
         description: Issue number to triage
         required: true
         type: number
+      dry_run:
+        description: Validate and archive triage without posting an issue comment
+        required: true
+        default: true
+        type: boolean
 
 permissions:
   contents: read
@@ -21,6 +26,7 @@ concurrency:
 
 env:
   COPILOT_AGENT_FIREWALL_ALLOW_LIST_ADDITIONS: "api.github.com,github.com,nuget.org,registry.npmjs.org,powershellgallery.com,bcinsider.blob.core.windows.net,azureedge.net,azurefd.net,mcr.microsoft.com,data.mcr.microsoft.com,cdn.mscr.io"
+  TRIAGE_DRY_RUN: ${{ github.event_name == 'issues' || inputs.dry_run }}
 
 jobs:
   triage:
@@ -98,8 +104,8 @@ jobs:
           "BC_SERVER_URL=http://$containerName" | Add-Content -Path $env:GITHUB_ENV
           "BC_SERVER_INSTANCE=BC" | Add-Content -Path $env:GITHUB_ENV
           "BC_AUTHENTICATION=UserPassword" | Add-Content -Path $env:GITHUB_ENV
-          "BC_USERNAME=admin" | Add-Content -Path $env:GITHUB_ENV
-          "BC_PASSWORD=$passwordText" | Add-Content -Path $env:GITHUB_ENV
+          "BC_SERVER_USERNAME=admin" | Add-Content -Path $env:GITHUB_ENV
+          "BC_SERVER_PASSWORD=$passwordText" | Add-Content -Path $env:GITHUB_ENV
 
       - name: Capture triggering issue
         shell: pwsh
@@ -123,14 +129,26 @@ jobs:
           $ErrorActionPreference = 'Stop'
           $commentPath = Join-Path $env:RUNNER_TEMP 'al-triage-comment.md'
           $errorPath = Join-Path $env:RUNNER_TEMP 'al-triage-error.log'
+          $mcpConfigPath = Join-Path $env:RUNNER_TEMP 'al-triage-mcp.json'
+          @{
+            mcpServers = @{
+              altool = @{
+                type = 'local'
+                command = 'al'
+                args = @('launchmcpserver', '--transport', 'stdio')
+                tools = @('*')
+              }
+            }
+          } | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath $mcpConfigPath -Encoding utf8
           $prompt = @"
           Triage public microsoft/AL issue #$env:TRIAGE_ISSUE_NUMBER.
           Read the complete issue payload from '$env:TRIAGE_ISSUE_PATH'.
           Follow the al-issue-triager custom agent and its AGENTS.md contract.
-          Investigate and reproduce safely using the installed AL Development Tools and running
-          BCInsider container. Do not modify tracked repository files, create a branch, commit,
-          pull request, label, assignment, or GitHub comment. Return only the final standardized
-          markdown issue comment; the workflow will validate and post it.
+          Investigate and reproduce safely using the altool MCP tools and running BCInsider container.
+          Use al_downloadsymbols before compiling projects with symbol references. Do not invoke
+          alc.exe directly or call /dev/packages manually. Do not modify tracked repository files,
+          create a branch, commit, pull request, label, assignment, or GitHub comment. Return only
+          the final standardized markdown issue comment; the workflow will validate it.
           "@
 
           & copilot `
@@ -141,6 +159,7 @@ jobs:
             --no-remote `
             --no-remote-export `
             --disable-builtin-mcps `
+            --additional-mcp-config "@$mcpConfigPath" `
             --allow-all-tools `
             --allow-all-paths `
             --allow-all-urls `
@@ -153,10 +172,17 @@ jobs:
             throw "Copilot CLI triage failed with exit code $LASTEXITCODE.`n$errorOutput"
           }
 
-      - name: Validate and post the single triage comment
+          $rawOutput = Get-Content -LiteralPath $commentPath -Raw
+          $heading = '## Automated AL issue triage'
+          $headingIndex = $rawOutput.IndexOf($heading, [StringComparison]::Ordinal)
+          if ($headingIndex -lt 0) {
+            throw "Copilot CLI triage output did not contain the required heading.`n$rawOutput"
+          }
+          $normalizedComment = $rawOutput.Substring($headingIndex).Trim()
+          Set-Content -LiteralPath $commentPath -Value $normalizedComment -Encoding utf8
+
+      - name: Validate triage output
         shell: pwsh
-        env:
-          GH_TOKEN: ${{ github.token }}
         run: |
           $ErrorActionPreference = 'Stop'
           $commentPath = Join-Path $env:RUNNER_TEMP 'al-triage-comment.md'
@@ -169,13 +195,12 @@ jobs:
             '### Environment',
             '**AL Development Tools:**',
             '**Business Central artifact:**',
-            '**Business Central container:**',
             '### Attempts and results',
             '| Report completeness |',
             '| Duplicate search |',
             '| Repository investigation |',
             '| ALTool reproduction |',
-            '| BC container reproduction |',
+            '| BC runtime reproduction |',
             '### Assessment',
             '### Recommended next step'
           )
@@ -183,17 +208,44 @@ jobs:
             if (-not $comment.Contains($text)) {
               throw "Triage output is missing required text '$text'."
             }
+            if (-not $comment.StartsWith('## Automated AL issue triage', [StringComparison]::Ordinal)) {
+              throw 'Triage output contains text before the required heading.'
+            }
           }
           if ($comment.Length -gt 12000) {
             throw "Triage output is too long ($($comment.Length) characters)."
           }
-          if ($env:BC_PASSWORD -and $comment.Contains($env:BC_PASSWORD)) {
+          if ($env:BC_SERVER_PASSWORD -and $comment.Contains($env:BC_SERVER_PASSWORD)) {
             throw 'Triage output contains the ephemeral sandbox password.'
           }
           if (git status --porcelain) {
             throw 'The triage agent modified tracked or untracked repository files.'
           }
 
+          "## Triage result for issue #$env:TRIAGE_ISSUE_NUMBER" |
+            Add-Content -Path $env:GITHUB_STEP_SUMMARY
+          if ($env:TRIAGE_DRY_RUN -eq 'true') {
+            "> Dry run: validated and archived without posting to GitHub." |
+              Add-Content -Path $env:GITHUB_STEP_SUMMARY
+          }
+          $comment | Add-Content -Path $env:GITHUB_STEP_SUMMARY
+
+      - name: Upload triage report
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: al-triage-issue-${{ github.event.issue.number || inputs.issue_number }}
+          path: ${{ runner.temp }}/al-triage-comment.md
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Post the single triage comment
+        if: env.TRIAGE_DRY_RUN != 'true'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $commentPath = Join-Path $env:RUNNER_TEMP 'al-triage-comment.md'
           $existingComment = gh api `
             "repos/$env:GITHUB_REPOSITORY/issues/$env:TRIAGE_ISSUE_NUMBER/comments" `
             --paginate `
