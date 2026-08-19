@@ -9,6 +9,11 @@ on:
         description: Issue number to triage
         required: true
         type: number
+      dry_run:
+        description: Validate and archive triage without posting an issue comment
+        required: true
+        default: true
+        type: boolean
 
 permissions:
   contents: read
@@ -21,6 +26,7 @@ concurrency:
 
 env:
   COPILOT_AGENT_FIREWALL_ALLOW_LIST_ADDITIONS: "api.github.com,github.com,nuget.org,registry.npmjs.org,powershellgallery.com,bcinsider.blob.core.windows.net,azureedge.net,azurefd.net,mcr.microsoft.com,data.mcr.microsoft.com,cdn.mscr.io"
+  TRIAGE_DRY_RUN: ${{ github.event_name == 'issues' || inputs.dry_run }}
 
 jobs:
   triage:
@@ -45,177 +51,52 @@ jobs:
 
       - name: Install triage tools
         shell: pwsh
-        run: |
-          $ErrorActionPreference = 'Stop'
-          dotnet tool install --global Microsoft.Dynamics.BusinessCentral.Development.Tools --prerelease
-          npm install --global @github/copilot@1.0.79-9
-          Install-Module BcContainerHelper -Force -Scope CurrentUser -Repository PSGallery
-
-          $alVersion = (& al --version 2>&1 | Out-String).Trim()
-          if (-not $alVersion) {
-            throw 'The AL Development Tools installation did not report a version.'
-          }
-          "ALTOOL_VERSION=$alVersion" | Add-Content -Path $env:GITHUB_ENV
+        run: .\scripts\al-issue-triage\Install-TriageTools.ps1
 
       - name: Start latest BCInsider Platform master sandbox
         shell: pwsh
         timeout-minutes: 35
-        run: |
-          $ErrorActionPreference = 'Stop'
-          Import-Module BcContainerHelper -Force
+        run: .\scripts\al-issue-triage\Start-TriageSandbox.ps1
 
-          $artifactUrl = Get-BcArtifactUrl -Type Sandbox -Country w1 -Select Latest `
-            -StorageAccount bcinsider -Accept_InsiderEula
-          if (-not $artifactUrl -or [string]$artifactUrl -notmatch '(?i)bcinsider') {
-            throw "Could not resolve a BCInsider Platform master sandbox artifact: '$artifactUrl'."
-          }
-
-          $containerName = 'al-public-triage'
-          $passwordText = [guid]::NewGuid().ToString('N') + 'aA1!'
-          Write-Host "::add-mask::$passwordText"
-          $credential = [pscredential]::new(
-            'admin',
-            (ConvertTo-SecureString $passwordText -AsPlainText -Force)
-          )
-
-          New-BcContainer `
-            -Accept_Eula `
-            -Accept_InsiderEula `
-            -ContainerName $containerName `
-            -ArtifactUrl $artifactUrl `
-            -Auth UserPassword `
-            -Credential $credential `
-            -UpdateHosts `
-            -Shortcuts None `
-            -IncludeAL
-
-          if (-not (Get-BcContainerId -ContainerName $containerName)) {
-            throw "Business Central container '$containerName' was not created."
-          }
-
-          "BC_CONTAINER_NAME=$containerName" | Add-Content -Path $env:GITHUB_ENV
-          "BC_ARTIFACT_URL=$artifactUrl" | Add-Content -Path $env:GITHUB_ENV
-          "BC_SERVER_URL=http://$containerName" | Add-Content -Path $env:GITHUB_ENV
-          "BC_SERVER_INSTANCE=BC" | Add-Content -Path $env:GITHUB_ENV
-          "BC_AUTHENTICATION=UserPassword" | Add-Content -Path $env:GITHUB_ENV
-          "BC_USERNAME=admin" | Add-Content -Path $env:GITHUB_ENV
-          "BC_PASSWORD=$passwordText" | Add-Content -Path $env:GITHUB_ENV
+      - name: Verify prerelease ALTool sandbox access
+        shell: pwsh
+        timeout-minutes: 5
+        run: .\scripts\al-issue-triage\Test-AlToolSandboxAccess.ps1
 
       - name: Capture triggering issue
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
           ISSUE_NUMBER: ${{ github.event.issue.number || github.event.inputs.issue_number }}
-        run: |
-          $ErrorActionPreference = 'Stop'
-          $issuePath = Join-Path $env:RUNNER_TEMP 'al-triage-issue.json'
-          gh api "repos/$env:GITHUB_REPOSITORY/issues/$env:ISSUE_NUMBER" |
-            Set-Content -LiteralPath $issuePath -Encoding utf8
-          "TRIAGE_ISSUE_NUMBER=$env:ISSUE_NUMBER" | Add-Content -Path $env:GITHUB_ENV
-          "TRIAGE_ISSUE_PATH=$issuePath" | Add-Content -Path $env:GITHUB_ENV
+        run: .\scripts\al-issue-triage\Get-TriggeringIssue.ps1
 
       - name: Run read-only AL issue triage
         shell: pwsh
         timeout-minutes: 20
         env:
           COPILOT_GITHUB_TOKEN: ${{ github.token }}
-        run: |
-          $ErrorActionPreference = 'Stop'
-          $commentPath = Join-Path $env:RUNNER_TEMP 'al-triage-comment.md'
-          $errorPath = Join-Path $env:RUNNER_TEMP 'al-triage-error.log'
-          $prompt = @"
-          Triage public microsoft/AL issue #$env:TRIAGE_ISSUE_NUMBER.
-          Read the complete issue payload from '$env:TRIAGE_ISSUE_PATH'.
-          Follow the al-issue-triager custom agent and its AGENTS.md contract.
-          Investigate and reproduce safely using the installed AL Development Tools and running
-          BCInsider container. Do not modify tracked repository files, create a branch, commit,
-          pull request, label, assignment, or GitHub comment. Return only the final standardized
-          markdown issue comment; the workflow will validate and post it.
-          "@
+        run: .\scripts\al-issue-triage\Invoke-AlIssueTriage.ps1
 
-          & copilot `
-            --agent al-issue-triager `
-            --prompt $prompt `
-            --silent `
-            --no-ask-user `
-            --no-remote `
-            --no-remote-export `
-            --disable-builtin-mcps `
-            --allow-all-tools `
-            --allow-all-paths `
-            --allow-all-urls `
-            --secret-env-vars COPILOT_GITHUB_TOKEN `
-            1> $commentPath 2> $errorPath
-          if ($LASTEXITCODE -ne 0) {
-            $errorOutput = if (Test-Path -LiteralPath $errorPath) {
-              Get-Content -LiteralPath $errorPath -Raw
-            }
-            throw "Copilot CLI triage failed with exit code $LASTEXITCODE.`n$errorOutput"
-          }
+      - name: Validate triage output
+        shell: pwsh
+        run: .\scripts\al-issue-triage\Test-AlIssueTriageOutput.ps1
 
-      - name: Validate and post the single triage comment
+      - name: Upload triage report
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: al-triage-issue-${{ github.event.issue.number || inputs.issue_number }}
+          path: ${{ runner.temp }}/al-triage-comment.md
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Post the single triage comment
+        if: env.TRIAGE_DRY_RUN != 'true'
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
-        run: |
-          $ErrorActionPreference = 'Stop'
-          $commentPath = Join-Path $env:RUNNER_TEMP 'al-triage-comment.md'
-          $comment = Get-Content -LiteralPath $commentPath -Raw
-
-          $requiredText = @(
-            '## Automated AL issue triage',
-            '**Classification:**',
-            '**Summary:**',
-            '### Environment',
-            '**AL Development Tools:**',
-            '**Business Central artifact:**',
-            '**Business Central container:**',
-            '### Attempts and results',
-            '| Report completeness |',
-            '| Duplicate search |',
-            '| Repository investigation |',
-            '| ALTool reproduction |',
-            '| BC container reproduction |',
-            '### Assessment',
-            '### Recommended next step'
-          )
-          foreach ($text in $requiredText) {
-            if (-not $comment.Contains($text)) {
-              throw "Triage output is missing required text '$text'."
-            }
-          }
-          if ($comment.Length -gt 12000) {
-            throw "Triage output is too long ($($comment.Length) characters)."
-          }
-          if ($env:BC_PASSWORD -and $comment.Contains($env:BC_PASSWORD)) {
-            throw 'Triage output contains the ephemeral sandbox password.'
-          }
-          if (git status --porcelain) {
-            throw 'The triage agent modified tracked or untracked repository files.'
-          }
-
-          $existingComment = gh api `
-            "repos/$env:GITHUB_REPOSITORY/issues/$env:TRIAGE_ISSUE_NUMBER/comments" `
-            --paginate `
-            --jq '.[] | select(.body | startswith("## Automated AL issue triage")) | .id' |
-            Select-Object -First 1
-          if ($existingComment) {
-            Write-Host "Issue #$env:TRIAGE_ISSUE_NUMBER already has an automated triage comment."
-            exit 0
-          }
-
-          gh issue comment $env:TRIAGE_ISSUE_NUMBER `
-            --repo $env:GITHUB_REPOSITORY `
-            --body-file $commentPath
+        run: .\scripts\al-issue-triage\Publish-AlIssueTriageComment.ps1
 
       - name: Stop disposable sandbox
         if: always()
         shell: pwsh
-        run: |
-          if (Get-Module BcContainerHelper -ListAvailable) {
-            Import-Module BcContainerHelper -Force
-            if ($env:BC_CONTAINER_NAME -and
-                (Get-BcContainerId -ContainerName $env:BC_CONTAINER_NAME)) {
-              Remove-BcContainer -ContainerName $env:BC_CONTAINER_NAME
-            }
-          }
+        run: .\scripts\al-issue-triage\Stop-TriageSandbox.ps1
