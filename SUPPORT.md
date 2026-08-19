@@ -34,7 +34,7 @@ for the complete checklist.
 | Prefix | Analyzer | Purpose |
 | --- | --- | --- |
 | `AA` | CodeCop | Code quality, readability, and localizability |
-| `AS` | AppSourceCop | AppSource compliance and upgrade compatibility |
+| `AS` | AppSourceCop | Marketplace compliance and upgrade compatibility |
 | `PTE` | PerTenantExtensionCop | Per-tenant extension requirements |
 | `AW` | UICop | Web client UI compatibility |
 
