@@ -4,6 +4,32 @@ param()
 $ErrorActionPreference = 'Stop'
 $repositoryRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 $workflow = Get-Content (Join-Path $repositoryRoot '.github\workflows\al-issue-triage.yml') -Raw
+
+function Assert-Contains([string] $Text, [string] $Expected) {
+    if (-not $Text.Contains($Expected)) {
+        throw "Expected text was not found: $Expected"
+    }
+}
+
+$workflowScriptsRoot = Join-Path $repositoryRoot 'scripts\al-issue-triage'
+$workflowScripts = @{}
+foreach ($scriptName in @(
+    'Install-TriageTools.ps1',
+    'Start-TriageSandbox.ps1',
+    'Test-AlToolSandboxAccess.ps1',
+    'Get-TriggeringIssue.ps1',
+    'Invoke-AlIssueTriage.ps1',
+    'Test-AlIssueTriageOutput.ps1',
+    'Publish-AlIssueTriageComment.ps1',
+    'Stop-TriageSandbox.ps1'
+)) {
+    $scriptPath = Join-Path $workflowScriptsRoot $scriptName
+    if (-not (Test-Path -LiteralPath $scriptPath -PathType Leaf)) {
+        throw "Required workflow script is missing: $scriptName"
+    }
+    $workflowScripts[$scriptName] = Get-Content -LiteralPath $scriptPath -Raw
+    Assert-Contains $workflow ".\scripts\al-issue-triage\$scriptName"
+}
 $setup = Get-Content (Join-Path $repositoryRoot '.github\workflows\copilot-setup-steps.yml') -Raw
 $instructions = Get-Content (
     Join-Path $repositoryRoot '.github\agents\al-issue-triager\AGENTS.md'
@@ -21,31 +47,37 @@ $agentRegistration = Get-Content (
     Join-Path $repositoryRoot '.github\agents\al-issue-triager.agent.md'
 ) -Raw
 
-function Assert-Contains([string] $Text, [string] $Expected) {
-    if (-not $Text.Contains($Expected)) {
-        throw "Expected text was not found: $Expected"
-    }
-}
-
 foreach ($text in @(
     'dry_run:',
     'default: true',
-    'Microsoft.Dynamics.BusinessCentral.Development.Tools --prerelease',
     "TRIAGE_DRY_RUN: `${{ github.event_name == 'issues' || inputs.dry_run }}",
     "if: env.TRIAGE_DRY_RUN != 'true'",
     'Upload triage report',
-    '$rawOutput.Substring($headingIndex).Trim()',
-    "StartsWith('## Automated AL issue triage'",
-    'ALTOOL_PATH=$altoolPath',
-    'Invoke verify-prerelease-altool first',
-    'run-al-code-analysis, publish-al-app, run-al-tests, and verify-al-e2e',
     'Verify prerelease ALTool sandbox access',
-    'BC_SERVER_USERNAME=admin',
-    'BC_SERVER_PASSWORD=$passwordText',
-    'BC_SERVER_PORT=7049',
-    'BC_TENANT=default'
+    '${{ github.token }}',
+    'if: always()',
+    'actions/upload-artifact@'
 )) {
     Assert-Contains $workflow $text
+}
+
+foreach ($assertion in @(
+    @{ Script = 'Install-TriageTools.ps1'; Text = 'Microsoft.Dynamics.BusinessCentral.Development.Tools --prerelease' },
+    @{ Script = 'Install-TriageTools.ps1'; Text = 'ALTOOL_PATH=$altoolPath' },
+    @{ Script = 'Start-TriageSandbox.ps1'; Text = 'BC_SERVER_USERNAME=admin' },
+    @{ Script = 'Start-TriageSandbox.ps1'; Text = 'BC_SERVER_PASSWORD=$passwordText' },
+    @{ Script = 'Start-TriageSandbox.ps1'; Text = 'BC_SERVER_PORT=7049' },
+    @{ Script = 'Start-TriageSandbox.ps1'; Text = 'BC_TENANT=default' },
+    @{ Script = 'Invoke-AlIssueTriage.ps1'; Text = '$rawOutput.Substring($headingIndex).Trim()' },
+    @{ Script = 'Invoke-AlIssueTriage.ps1'; Text = 'Invoke verify-prerelease-altool first' },
+    @{ Script = 'Invoke-AlIssueTriage.ps1'; Text = 'run-al-code-analysis, publish-al-app, run-al-tests, and verify-al-e2e' },
+    @{ Script = 'Test-AlIssueTriageOutput.ps1'; Text = "StartsWith('## Automated AL issue triage'" }
+)) {
+    Assert-Contains $workflowScripts[$assertion.Script] $assertion.Text
+}
+
+if ([regex]::Matches($workflow, '(?m)^\s+run:\s+\|').Count -ne 0) {
+    throw 'The triage workflow contains inline PowerShell instead of checked-in scripts.'
 }
 
 foreach ($text in @(
@@ -131,7 +163,8 @@ foreach ($forbidden in @(
 }
 
 if ($instructions.Contains('**Business Central container:**') -or
-    $workflow.Contains('**Business Central container:**')) {
+    $workflow.Contains('**Business Central container:**') -or
+    ($workflowScripts.Values -match [regex]::Escape('**Business Central container:**'))) {
     throw 'The public output contract still exposes container availability.'
 }
 
@@ -139,7 +172,8 @@ foreach ($obsolete in @(
     '"BC_USERNAME=admin"',
     '"BC_PASSWORD=$passwordText"'
 )) {
-    if ($workflow.Contains($obsolete) -or $setup.Contains($obsolete)) {
+    if ($workflow.Contains($obsolete) -or $setup.Contains($obsolete) -or
+        ($workflowScripts.Values -match [regex]::Escape($obsolete))) {
         throw "Obsolete ALTool credential variable remains: $obsolete"
     }
 }
