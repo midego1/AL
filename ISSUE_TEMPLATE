@@ -1,10 +1,10 @@
 <!--
-For NAV 2018 issues please contact regular support channels. 
-This repo is dedicated only to the latest Business Central Developer Preview releases.
+For supported-product issues, use the regular support channels.
+This repository is dedicated to reproducible defects in the latest AL developer tools.
 
-!!!Please, Please, Please!!! - Read the FAQ before posting:
-https://github.com/Microsoft/AL/wiki/Frequently-Asked-Questions
-Many questions are already answered and it will save time both for you and for us.
+Read the support guidance before posting:
+https://github.com/Microsoft/AL/blob/master/SUPPORT.md
+It explains issue routing, diagnostics, and the information needed for a reproducible bug report.
 -->
 
 <!-- Go to Visual Studio Code → Extensions panel → AL Language -->
