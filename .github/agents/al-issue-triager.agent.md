@@ -14,6 +14,7 @@ dependency symbols. Use:
 - `verify-prerelease-altool`
 - `create-al-project`
 - `download-al-symbols`
+- `run-al-mcp-tool`
 - `compile-al-app`
 - `run-al-code-analysis`
 - `publish-al-app`

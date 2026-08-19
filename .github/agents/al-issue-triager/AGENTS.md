@@ -56,25 +56,35 @@ the reproduction row. Never reinterpret an environment failure as a product repr
    behavior, not just words; report at most three strong candidates.
 5. Inspect relevant public source, tests, documentation, and recent changes. Cite exact paths, issue
    numbers, commits, or public URLs.
-6. Attempt safe reproduction when the issue is in scope and provides sufficient inline material:
+6. Independently execute a safe reproduction for every in-scope bug. Reporter text, screenshots,
+   attachments, source inspection, and matching existing tests are claims or supporting context,
+   never reproduction evidence. Do not skip execution merely because the report is incomplete:
+   construct the smallest safe fixture from the claimed behavior whenever possible.
    - invoke `verify-prerelease-altool`, then select the smallest applicable skill:
-     `create-al-project`, `download-al-symbols`, `compile-al-app`, `run-al-code-analysis`,
-     `publish-al-app`, `run-al-tests`, or `verify-al-e2e`;
+     `create-al-project`, `download-al-symbols`, `run-al-mcp-tool`, `compile-al-app`,
+     `run-al-code-analysis`, `publish-al-app`, `run-al-tests`, or `verify-al-e2e`;
+   - for an issue about an AL MCP tool, invoke `run-al-mcp-tool`; do not replace that product path
+     with direct compiler execution or source reasoning;
    - when `app.json` references platform, application, or dependency packages, invoke
      `download-al-symbols` before compiling and confirm that `.alpackages` contains the requested
      packages. The skill owns ALTool's internal symbol-download protocol; do not launch or script an
      MCP server yourself;
-   - never invoke `alc.exe` directly and never call `/dev/packages` manually; those paths bypass the
-     configured ALTool workspace and non-interactive sandbox credentials;
+   - never invoke `alc.exe` directly, hand-script an MCP server, or call `/dev/packages` manually;
+     use the deterministic skills so the configured prerelease ALTool and sandbox are preserved;
    - use the running latest BCInsider Platform master sandbox for publish/runtime checks;
    - create temporary fixtures outside the repository checkout;
    - record exact commands and observed results;
    - remove temporary fixtures when done.
 7. If an ALTool operation fails, report the exact command or skill call and response. A direct
    compiler failure or manual HTTP 401 is not evidence that ALTool cannot obtain symbols.
-8. If reproduction is unsafe or impossible, state the exact missing input or environment capability.
-9. Keep observed evidence separate from hypotheses. Never claim a root cause, regression, duplicate,
-   or reproduction without evidence.
+8. If execution is blocked, first attempt the closest safe product-path command or skill call, then
+   state that exact invocation and blocker. Environment inspection alone is not an attempted
+   reproduction.
+9. Run a valid control case when feasible. `not reproduced` means the reported scenario and control
+   both executed and the claimed behavior was absent; use `inconclusive` when execution was blocked.
+   Reserve `not attempted` for out-of-scope or genuinely inapplicable routes.
+10. Keep observed evidence separate from hypotheses. Never claim a root cause, regression, duplicate,
+    or reproduction without independently executed evidence.
 
 ## Comment contract
 
@@ -119,3 +129,10 @@ not attempted. Do not disclose sandbox/container availability or setup mechanics
 comment. Keep the comment concise and public-safe. Do not include progress narration, hidden
 reasoning, secrets, private system references, or a second comment. The first output characters must
 be the `## Automated AL issue triage` heading.
+
+For an in-scope compiler or tooling bug, the `ALTool reproduction` row must be independently
+executed. For an in-scope runtime/server issue, the `BC runtime reproduction` row must be
+independently executed. Format successful attempts as `Executed <skill or command>; observed
+<result>` (include exit code or returned diagnostics when available). Format blocked attempts as
+`Attempted <skill or command>; blocked by <exact failure>`. The validator rejects claim-only,
+source-only, and unattempted in-scope conclusions.

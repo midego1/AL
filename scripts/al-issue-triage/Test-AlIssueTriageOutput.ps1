@@ -4,6 +4,7 @@ param()
 $ErrorActionPreference = 'Stop'
 $commentPath = Join-Path $env:RUNNER_TEMP 'al-triage-comment.md'
 $comment = Get-Content -LiteralPath $commentPath -Raw
+. (Join-Path $PSScriptRoot 'Assert-AlIssueTriageEvidence.ps1')
 
 $requiredText = @(
     '## Automated AL issue triage',
@@ -36,6 +37,7 @@ if ($comment.Length -gt 12000) {
 if ($env:BC_SERVER_PASSWORD -and $comment.Contains($env:BC_SERVER_PASSWORD)) {
     throw 'Triage output contains the ephemeral sandbox password.'
 }
+Assert-AlIssueTriageEvidence -Comment $comment
 if (git status --porcelain) {
     throw 'The triage agent modified tracked or untracked repository files.'
 }

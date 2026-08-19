@@ -16,5 +16,6 @@ ALTool's symbol-download capability non-interactively with the sandbox connectio
 credentials provided by the workflow, writes packages to `<project>\.alpackages`, and fails unless
 at least one package is present.
 
-Do not invoke `alc.exe`, launch or script an MCP server yourself, or call `/dev/packages` directly.
-After the wrapper succeeds, compile through ALTool and pass the populated `.alpackages` path.
+For symbol download, do not invoke `alc.exe`, launch or script an MCP server yourself, or call
+`/dev/packages` directly. Use `run-al-mcp-tool` separately when the issue itself concerns an MCP
+tool. After the wrapper succeeds, compile through ALTool and pass the populated `.alpackages` path.

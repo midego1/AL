@@ -8,11 +8,15 @@ $prompt = @"
 Triage public microsoft/AL issue #$env:TRIAGE_ISSUE_NUMBER.
 Read the complete issue payload from '$env:TRIAGE_ISSUE_PATH'.
 Follow the al-issue-triager custom agent and its AGENTS.md contract.
-Investigate and reproduce safely using the freshly installed prerelease ALTool and running
-BCInsider sandbox. Invoke verify-prerelease-altool first, then use the smallest applicable
-skill chain from create-al-project, download-al-symbols, compile-al-app,
+Treat every reporter statement as an unverified claim. For every in-scope bug, independently
+execute the closest safe product-path reproduction; source inspection and report text do not
+count. If execution is blocked, record the exact attempted skill or command and blocker.
+Investigate using the freshly installed prerelease ALTool and running BCInsider sandbox.
+Invoke verify-prerelease-altool first, then use the smallest applicable skill chain from
+create-al-project, download-al-symbols, run-al-mcp-tool, compile-al-app,
 run-al-code-analysis, publish-al-app, run-al-tests, and verify-al-e2e. Do not launch or
-script an MCP server, invoke alc.exe directly, or call BC HTTP endpoints manually. Do not
+script an MCP server yourself; use run-al-mcp-tool for MCP behavior. Do not invoke alc.exe
+directly or call BC HTTP endpoints manually. Run a valid control when feasible. Do not
 modify tracked repository files, create a branch, commit, pull request, label, assignment,
 or GitHub comment. Return only the final standardized markdown issue comment; the workflow
 will validate it.
