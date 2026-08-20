@@ -17,6 +17,8 @@ create-al-project, download-al-symbols, run-al-mcp-tool, compile-al-app,
 run-al-code-analysis, publish-al-app, run-al-tests, and verify-al-e2e. Do not launch or
 script an MCP server yourself; use run-al-mcp-tool for MCP behavior. Do not invoke alc.exe
 directly or call BC HTTP endpoints manually. Run a valid control when feasible. Do not
+classify an independently executed latest-prerelease `not reproduced` result as an accepted bug;
+use the `likely fixed` scope and recommend closing as likely fixed instead. Do not
 modify tracked repository files, create a branch, commit, pull request, label, assignment,
 or GitHub comment. Return only the final standardized markdown issue comment; the workflow
 will validate it.

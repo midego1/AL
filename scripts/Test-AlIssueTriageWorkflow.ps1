@@ -78,6 +78,7 @@ foreach ($assertion in @(
     @{ Script = 'Invoke-AlIssueTriage.ps1'; Text = 'Invoke verify-prerelease-altool first' },
     @{ Script = 'Invoke-AlIssueTriage.ps1'; Text = 'run-al-mcp-tool, compile-al-app' },
     @{ Script = 'Invoke-AlIssueTriage.ps1'; Text = 'Treat every reporter statement as an unverified claim' },
+    @{ Script = 'Invoke-AlIssueTriage.ps1'; Text = 'use the `likely fixed` scope' },
     @{ Script = 'Test-AlIssueTriageOutput.ps1'; Text = "StartsWith('## Automated AL issue triage'" }
 )) {
     Assert-Contains $workflowScripts[$assertion.Script] $assertion.Text
@@ -102,6 +103,8 @@ foreach ($text in @(
     'call `/dev/packages` manually',
     'Reporter text, screenshots',
     '`run-al-mcp-tool`',
+    '`likely fixed` scope',
+    'do not recommend applying `accepted`',
     'validator rejects claim-only',
     'Do not disclose sandbox/container availability',
     'The first output characters must'
@@ -186,6 +189,28 @@ $validExecutedReport = @'
 '@
 Assert-AlIssueTriageEvidence -Comment $validExecutedReport
 
+$validLikelyFixedReport = @'
+## Automated AL issue triage
+**Classification:** `compiler bug`
+- **Scope:** `likely fixed` - Latest prerelease compiler did not exhibit the reported diagnostic gap.
+| ALTool reproduction | `not reproduced` | Executed `compile-al-app` against the reported scenario and control; observed exit code 0 with AA0137 for both declaration forms. |
+| BC runtime reproduction | `not attempted` | Not applicable. |
+### Recommended next step
+Close this issue as likely fixed; provide a fresh current-version reproduction if the problem persists.
+'@
+Assert-AlIssueTriageEvidence -Comment $validLikelyFixedReport
+
+$validLikelyFixedRuntimeReport = @'
+## Automated AL issue triage
+**Classification:** `runtime/server issue`
+- **Scope:** `likely fixed` - Latest prerelease runtime did not exhibit the reported failure.
+| ALTool reproduction | `not attempted` | Not applicable. |
+| BC runtime reproduction | `not reproduced` | Executed `verify-al-e2e` against the reported scenario and control; observed successful publish and runtime completion. |
+### Recommended next step
+Close this issue as likely fixed; provide a fresh current-version reproduction if the problem persists.
+'@
+Assert-AlIssueTriageEvidence -Comment $validLikelyFixedRuntimeReport
+
 foreach ($invalidReport in @(
 @'
 ## Automated AL issue triage
@@ -207,6 +232,42 @@ foreach ($invalidReport in @(
 - **Scope:** `in scope` - runtime
 | ALTool reproduction | `not attempted` | Not applicable. |
 | BC runtime reproduction | `inconclusive` | Environment looked unavailable. |
+'@,
+@'
+## Automated AL issue triage
+**Classification:** `tooling bug`
+- **Scope:** `likely fixed` - The latest prerelease result was inconclusive.
+| ALTool reproduction | `inconclusive` | Attempted `run-al-mcp-tool al_build`; blocked by a timeout. |
+| BC runtime reproduction | `not attempted` | Not applicable. |
+### Recommended next step
+Close this issue as likely fixed.
+'@,
+@'
+## Automated AL issue triage
+**Classification:** `tooling bug`
+- **Scope:** `likely fixed` - The latest prerelease did not reproduce the issue.
+| ALTool reproduction | `not reproduced` | Executed `run-al-mcp-tool al_build`; observed success without the reported error. |
+| BC runtime reproduction | `not attempted` | Not applicable. |
+### Recommended next step
+Apply `accepted` for internal follow-up, then close this issue as likely fixed.
+'@,
+@'
+## Automated AL issue triage
+**Classification:** `documentation`
+- **Scope:** `likely fixed` - The documentation now appears correct.
+| ALTool reproduction | `not reproduced` | Executed a documentation check; observed current text. |
+| BC runtime reproduction | `not attempted` | Not applicable. |
+### Recommended next step
+Close this issue as likely fixed.
+'@,
+@'
+## Automated AL issue triage
+**Classification:** `tooling bug`
+- **Scope:** `likely fixed` - The latest prerelease did not reproduce the issue.
+| ALTool reproduction | `not reproduced` | Executed `run-al-mcp-tool al_build`; observed success without the reported error. |
+| BC runtime reproduction | `not attempted` | Not applicable. |
+### Recommended next step
+Do not close this issue as likely fixed until it is accepted.
 '@
 )) {
     $failedAsExpected = $false
@@ -217,7 +278,7 @@ foreach ($invalidReport in @(
         $failedAsExpected = $true
     }
     if (-not $failedAsExpected) {
-        throw 'Independent verification validator accepted a claim-only or unattempted report.'
+        throw 'Independent verification validator accepted an invalid evidence outcome.'
     }
 }
 

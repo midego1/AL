@@ -11,7 +11,7 @@ function Assert-AlIssueTriageEvidence {
     )
     $scopeMatch = [regex]::Match(
         $Comment,
-        '(?m)^-\s*\*\*Scope:\*\*\s*`?(?<value>in scope|out of scope|needs human decision)`?'
+        '(?m)^-\s*\*\*Scope:\*\*\s*`?(?<value>in scope|likely fixed|out of scope|needs human decision)`?'
     )
     if (-not $classificationMatch.Success -or -not $scopeMatch.Success) {
         throw 'Triage output has an invalid classification or scope field.'
@@ -65,6 +65,36 @@ function Assert-AlIssueTriageEvidence {
     }
     if ($scope -eq 'in scope' -and $classification -eq 'runtime/server issue') {
         Assert-ExecutedEvidence -Row $runtime -Name 'BC runtime reproduction'
+    }
+    if ($scope -eq 'likely fixed') {
+        if ($classification -notin @('compiler bug', 'tooling bug', 'runtime/server issue')) {
+            throw 'Likely fixed is only valid for compiler, tooling, or runtime/server bugs.'
+        }
+
+        $reproduction = if ($classification -eq 'runtime/server issue') { $runtime } else { $altool }
+        $reproductionName = if ($classification -eq 'runtime/server issue') {
+            'BC runtime reproduction'
+        }
+        else {
+            'ALTool reproduction'
+        }
+        Assert-ExecutedEvidence -Row $reproduction -Name $reproductionName
+        if ($reproduction.Result -ne 'not reproduced') {
+            throw 'Likely fixed requires independently executed not reproduced evidence.'
+        }
+
+        $recommendedNextStep = [regex]::Match(
+            $Comment,
+            '(?ms)^### Recommended next step\s*(?<value>.*?)(?:\r?\n### |\z)'
+        )
+        if (-not $recommendedNextStep.Success -or
+            $recommendedNextStep.Groups['value'].Value -notmatch
+                '(?i)^\s*(?:please\s+)?close\b.*\blikely fixed\b') {
+            throw 'Likely fixed must recommend closing the issue as likely fixed.'
+        }
+        if ($recommendedNextStep.Groups['value'].Value -match '(?i)\baccept(?:ed|ance)?\b') {
+            throw 'Likely fixed must not recommend acceptance.'
+        }
     }
 
     foreach ($row in @($altool, $runtime)) {
