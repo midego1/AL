@@ -26,6 +26,18 @@ Developer Preview, the AL compiler, or accompanying developer tools are in scope
 An interaction with the Business Central server remains in scope when the defect belongs to the
 developer tool or protocol used to compile, publish, debug, or run tests.
 
+## Likely fixed
+
+Use `likely fixed` when an issue describes an otherwise in-scope bug, but an independent execution
+of the relevant product path with the latest public prerelease AL tooling and, when applicable, the
+latest BCInsider Platform master sandbox does not reproduce the reported failure. The reported
+scenario must execute successfully, and a valid control should also execute when feasible.
+
+This is a terminal triage outcome, not an accepted bug. Recommend closing the issue as likely fixed
+and invite the reporter to provide a fresh current-version reproduction if the problem persists.
+Do not apply or recommend `accepted`, and do not create internal follow-up solely for a
+latest-prerelease `not reproduced` result.
+
 ## Out of scope
 
 The following reports are out of scope even when they mention AL:
@@ -71,6 +83,7 @@ Do not investigate or propose an application change after identifying one of the
 | A breakpoint cannot bind or the debugger shows an incorrect variable value | In scope |
 | The AL test runner fails to discover, execute, filter, or report tests correctly | In scope |
 | ALTool cannot download symbols or publish a valid package because of tool behavior | In scope |
+| A reported AL tooling bug is absent when independently executed on the latest prerelease product path | Likely fixed |
 | A standard posting routine calculates the wrong amount | Out of scope |
 | A first-party page or table needs a new integration event or field | Out of scope |
 | A test fails because the application under test contains incorrect business logic | Out of scope |
